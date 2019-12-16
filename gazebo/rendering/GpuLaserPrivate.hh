@@ -72,19 +72,19 @@ namespace gazebo
       public: Ogre::Material *matSecondPass;
 
       /// \brief An array of first pass textures.
-      public: Ogre::Texture *firstPassTextures[3];
+      public: Ogre::Texture *firstPassTextures[6];
 
       /// \brief Second pass texture.
       public: Ogre::Texture *secondPassTexture;
 
       /// \brief First pass render targets.
-      public: Ogre::RenderTarget *firstPassTargets[3];
+      public: Ogre::RenderTarget *firstPassTargets[6];
 
       /// \brief Second pass render target.
       public: Ogre::RenderTarget *secondPassTarget;
 
       /// \brief First pass viewports.
-      public: Ogre::Viewport *firstPassViewports[3];
+      public: Ogre::Viewport *firstPassViewports[6];
 
       /// \brief Second pass viewport
       public: Ogre::Viewport *secondPassViewport;

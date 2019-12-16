@@ -139,26 +139,27 @@ void GpuLaser::Fini()
 //////////////////////////////////////////////////
 void GpuLaser::CreateLaserTexture(const std::string &_textureName)
 {
-  this->camera->yaw(Ogre::Radian(this->horzHalfAngle));
+  const double cameraStartAngle = this->horzHalfAngle - (this->cameraCount * this->hfov / 2);
+  this->camera->yaw(Ogre::Radian(cameraStartAngle));
 
   this->CreateOrthoCam();
 
-  this->dataPtr->textureCount = this->cameraCount;
+  this->dataPtr->textureCount = 6; // TODO smarter
 
-  if (this->dataPtr->textureCount == 2)
-  {
-    this->dataPtr->cameraYaws[0] = -this->hfov/2;
-    this->dataPtr->cameraYaws[1] = +this->hfov;
-    this->dataPtr->cameraYaws[2] = 0;
-    this->dataPtr->cameraYaws[3] = -this->hfov/2;
-  }
-  else
-  {
-    this->dataPtr->cameraYaws[0] = -this->hfov;
-    this->dataPtr->cameraYaws[1] = +this->hfov;
-    this->dataPtr->cameraYaws[2] = +this->hfov;
-    this->dataPtr->cameraYaws[3] = -this->hfov;
-  }
+//  if (this->dataPtr->textureCount == 2)
+//  {
+//    this->dataPtr->cameraYaws[0] = -this->hfov/2;
+//    this->dataPtr->cameraYaws[1] = +this->hfov;
+//    this->dataPtr->cameraYaws[2] = 0;
+//    this->dataPtr->cameraYaws[3] = -this->hfov/2;
+//  }
+//  else
+//  {
+//    this->dataPtr->cameraYaws[0] = -this->hfov;
+//    this->dataPtr->cameraYaws[1] = +this->hfov;
+//    this->dataPtr->cameraYaws[2] = +this->hfov;
+//    this->dataPtr->cameraYaws[3] = -this->hfov;
+//  }
 
   for (unsigned int i = 0; i < this->dataPtr->textureCount; ++i)
   {
@@ -424,38 +425,83 @@ void GpuLaser::RenderImpl()
   sceneMgr->_suppressRenderStateChanges(true);
   sceneMgr->addRenderObjectListener(this);
 
-  for (unsigned int i = 0; i < this->dataPtr->textureCount; ++i)
-  {
-    if (this->dataPtr->textureCount > 1)
-    {
-      // Cannot call Camera::RotateYaw because it rotates in world frame,
-      // but we need rotation in camera local frame
-      this->sceneNode->roll(Ogre::Radian(this->dataPtr->cameraYaws[i]));
-    }
+  this->dataPtr->currentMat = this->dataPtr->matFirstPass;
 
-    this->dataPtr->currentMat = this->dataPtr->matFirstPass;
-    this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[i];
+  // first camera
+  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[0];
+  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[0], this->dataPtr->matFirstPass, this->camera);
+  this->dataPtr->firstPassTargets[0]->update(false);
 
-    this->UpdateRenderTarget(this->dataPtr->firstPassTargets[i],
-                  this->dataPtr->matFirstPass, this->camera);
-    this->dataPtr->firstPassTargets[i]->update(false);
-  }
+  this->sceneNode->roll(Ogre::Radian(M_PI_2));
 
-  if (this->dataPtr->textureCount > 1)
-      this->sceneNode->roll(Ogre::Radian(this->dataPtr->cameraYaws[3]));
+  // second camera
+  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[1];
+  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[1], this->dataPtr->matFirstPass, this->camera);
+  this->dataPtr->firstPassTargets[1]->update(false);
+
+  this->sceneNode->roll(Ogre::Radian(M_PI_2));
+
+  // third camera
+  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[2];
+  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[2], this->dataPtr->matFirstPass, this->camera);
+  this->dataPtr->firstPassTargets[2]->update(false);
+
+  this->sceneNode->roll(Ogre::Radian(M_PI_2));
+
+  // fourth camera
+  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[3];
+  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[3], this->dataPtr->matFirstPass, this->camera);
+  this->dataPtr->firstPassTargets[3]->update(false);
+
+  this->sceneNode->roll(Ogre::Radian(M_PI_2));
+  this->sceneNode->pitch(Ogre::Radian(M_PI_2));
+
+  // top camera
+  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[4];
+  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[4], this->dataPtr->matFirstPass, this->camera);
+  this->dataPtr->firstPassTargets[4]->update(false);
+
+  this->sceneNode->pitch(Ogre::Radian(-M_PI));
+
+  // bottom camera
+  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[5];
+  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[5], this->dataPtr->matFirstPass, this->camera);
+  this->dataPtr->firstPassTargets[5]->update(false);
+
+  this->sceneNode->pitch(Ogre::Radian(M_PI_2));
+
+//  for (unsigned int i = 0; i < this->dataPtr->textureCount; ++i)
+//  {
+////    if (this->dataPtr->textureCount > 1)
+////    {
+////      // Cannot call Camera::RotateYaw because it rotates in world frame,
+////      // but we need rotation in camera local frame
+////      this->sceneNode->roll(Ogre::Radian(this->dataPtr->cameraYaws[i]));
+////    }
+//
+//    this->dataPtr->currentMat = this->dataPtr->matFirstPass;
+//    this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[i];
+//
+//    this->UpdateRenderTarget(this->dataPtr->firstPassTargets[i],
+//                  this->dataPtr->matFirstPass, this->camera);
+//    this->dataPtr->firstPassTargets[i]->update(false);
+//  }
+//
+//  if (this->dataPtr->textureCount > 1)
+//      this->sceneNode->roll(Ogre::Radian(this->dataPtr->cameraYaws[3]));
 
   sceneMgr->removeRenderObjectListener(this);
 
   double firstPassDur = firstPassTimer.GetElapsed().Double();
-  secondPassTimer.Start();
-
-  this->dataPtr->visual->SetVisible(true);
-
-  this->UpdateRenderTarget(this->dataPtr->secondPassTarget,
-                this->dataPtr->matSecondPass, this->dataPtr->orthoCam, true);
-  this->dataPtr->secondPassTarget->update(false);
-
-  this->dataPtr->visual->SetVisible(false);
+//  secondPassTimer.Start();
+//
+//  this->dataPtr->visual->SetVisible(true);
+//
+//  this->UpdateRenderTarget(this->dataPtr->secondPassTarget,
+//                this->dataPtr->matSecondPass, this->dataPtr->orthoCam, true);
+//  this->dataPtr->secondPassTarget->update(false);
+//
+//  this->dataPtr->visual->SetVisible(false);
 
   sceneMgr->_suppressRenderStateChanges(false);
 
