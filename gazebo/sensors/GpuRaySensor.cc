@@ -14,9 +14,11 @@
  * limitations under the License.
  *
 */
+#include <cmath>
 #include <boost/algorithm/string.hpp>
 #include <ignition/common/Profiler.hh>
 #include <functional>
+#include <utility>
 #include <ignition/math.hh>
 #include <ignition/math/Helpers.hh>
 #include "gazebo/physics/World.hh"
@@ -33,6 +35,7 @@
 #include "gazebo/rendering/RenderingIface.hh"
 #include "gazebo/rendering/RenderEngine.hh"
 #include "gazebo/rendering/GpuLaser.hh"
+#include "gazebo/rendering/GpuLaserCameraSetting.hh"
 
 #include "gazebo/sensors/Noise.hh"
 #include "gazebo/sensors/SensorFactory.hh"
@@ -184,59 +187,37 @@ void GpuRaySensor::Init()
     this->dataPtr->laserCam->SetFarClip(this->RangeMax());
 
     // horizontal laser setup
-    double hfov = (this->AngleMax() - this->AngleMin()).Radian();
+    double hfovTotal = (this->AngleMax() - this->AngleMin()).Radian();
 
-    if (hfov > 2 * M_PI)
+    if (hfovTotal > 2 * M_PI)
     {
-      hfov = 2 * M_PI;
-      gzwarn << "Horizontal FOV for GPU laser is capped at 180 degrees.\n";
+      hfovTotal = 2 * M_PI;
+      gzwarn << "Horizontal FOV for GPU laser is capped at 360 degrees.\n";
     }
 
     this->dataPtr->laserCam->SetHorzHalfAngle(
       (this->AngleMax() + this->AngleMin()).Radian() / 2.0);
 
-    // determine number of cameras to use
-    unsigned int cameraCount;
-    if (hfov > 2.8)
-    {
-      if (hfov > 5.6)
-      {
-        cameraCount = 3;
-      }
-      else
-      {
-        cameraCount = 2;
-      }
-    }
-    else
-    {
-      cameraCount = 1;
-    }
-    this->dataPtr->laserCam->SetCameraCount(cameraCount);
-
-    // horizontal fov of single frame
-    hfov = hfov / cameraCount;
-
-    this->dataPtr->laserCam->SetHorzFOV(hfov);
-    this->dataPtr->laserCam->SetCosHorzFOV(hfov);
+    // we use a fixed square camera FOV
+    this->dataPtr->laserCam->SetHorzFOV(M_PI_2);
+    this->dataPtr->laserCam->SetCosHorzFOV(M_PI_2);
 
     // Fixed minimum resolution of texture to reduce steps in ranges
     // when hitting surfaces where the angle between ray and surface is small.
     // Also have to keep in mind the GPU's max. texture size
-    unsigned int horzRangeCountPerCamera =
-        std::max(2048U, this->dataPtr->horzRangeCount / cameraCount);
+    unsigned int horzRangeCountPerCamera = this->dataPtr->horzRangeCount / 4;
     unsigned int vertRangeCountPerCamera = this->dataPtr->vertRangeCount;
 
     // vertical laser setup
-    double vfov;
+    double vfovTotal;
 
     if (this->dataPtr->vertRayCount > 1)
     {
-      vfov = (this->VerticalAngleMax() - this->VerticalAngleMin()).Radian();
+      vfovTotal = (this->VerticalAngleMax() - this->VerticalAngleMin()).Radian();
     }
     else
     {
-      vfov = 0;
+      vfovTotal = 0;
 
       if (this->VerticalAngleMax() != this->VerticalAngleMin())
       {
@@ -246,42 +227,24 @@ void GpuRaySensor::Init()
       }
     }
 
-    if (vfov > M_PI / 2)
+    if (vfovTotal > M_PI)
     {
-      vfov = M_PI / 2;
-      gzwarn << "Vertical FOV for GPU laser is capped at 90 degrees.\n";
+      vfovTotal = M_PI;
+      gzwarn << "Vertical FOV for GPU laser is capped at 180 degrees.\n";
     }
 
-    this->dataPtr->laserCam->SetVertFOV(vfov);
+    const double vfovPerCamera = M_PI_2;
+    this->dataPtr->laserCam->SetVertFOV(vfovPerCamera);
     this->dataPtr->laserCam->SetVertHalfAngle((this->VerticalAngleMax()
                      + this->VerticalAngleMin()).Radian() / 2.0);
 
-    this->SetVerticalAngleMin(this->dataPtr->laserCam->VertHalfAngle() -
-                              (vfov / 2));
-    this->SetVerticalAngleMax(this->dataPtr->laserCam->VertHalfAngle() +
-                              (vfov / 2));
-
-    // Assume camera always stays horizontally even if vert. half angle of
-    // laser is not 0. Add padding to camera vfov.
-    double vfovCamera = vfov + 2 * std::abs(
-        this->dataPtr->laserCam->VertHalfAngle());
-
-    // Add padding to vertical camera FOV to cover all possible rays
-    // for given laser vert. and horiz. FOV
-    vfovCamera = 2 * atan(tan(vfovCamera / 2) / cos(hfov / 2));
-
-    if (vfovCamera > 2.8)
-    {
-      gzerr << "Vertical FOV of internal camera exceeds 2.8 radians.\n";
-    }
-
-    this->dataPtr->laserCam->SetCosVertFOV(vfovCamera);
+    this->dataPtr->laserCam->SetCosVertFOV(vfovPerCamera);
 
     // If vertical ray is not 1 adjust horizontal and vertical
     // ray count to maintain aspect ratio
     if (this->dataPtr->vertRayCount > 1)
     {
-      double cameraAspectRatio = tan(hfov / 2.0) / tan(vfovCamera / 2.0);
+      double cameraAspectRatio = 1;
 
       this->dataPtr->laserCam->SetRayCountRatio(cameraAspectRatio);
       this->dataPtr->rangeCountRatio = cameraAspectRatio;
@@ -301,18 +264,45 @@ void GpuRaySensor::Init()
     else
     {
       // In case of 1 vert. ray, set a very small vertical FOV for camera
-      this->dataPtr->laserCam->SetRayCountRatio(horzRangeCountPerCamera);
+      this->dataPtr->laserCam->SetRayCountRatio(1.0);
     }
+
+    // create sets of angles and initialize cubemap
+    // eventually, this should also be able to handle irregular spaced rays
+    // but that would require changes to the SDFormat definition of a ray sensor
+    {
+      std::set<double> azimuth_angles;
+      const double azimuth_angle_increment = hfovTotal / (this->dataPtr->horzRangeCount - 1);
+      double azimuth = this->AngleMin().Radian();
+      for (unsigned int i = 0; i < this->dataPtr->horzRangeCount; i++)
+      {
+        azimuth_angles.insert(azimuth);
+        azimuth += azimuth_angle_increment;
+      }
+
+      std::set<double> elevation_angles;
+      const double elevation_angle_increment = vfovTotal / (this->dataPtr->vertRangeCount - 1);
+      double elevation = this->VerticalAngleMin().Radian();
+      for (unsigned int i = 0; i < this->dataPtr->vertRangeCount; i++)
+      {
+        elevation_angles.insert(elevation);
+        elevation += elevation_angle_increment;
+      }
+
+      this->dataPtr->laserCam->InitMapping(azimuth_angles, elevation_angles);
+    }
+
+    const unsigned int camera_resolution = std::max(this->RayCount() / 4, this->VerticalRayCount() / 2);
 
     // Initialize camera sdf for GpuLaser
     this->dataPtr->cameraElem.reset(new sdf::Element);
     sdf::initFile("camera.sdf", this->dataPtr->cameraElem);
 
-    this->dataPtr->cameraElem->GetElement("horizontal_fov")->Set(hfov);
+    this->dataPtr->cameraElem->GetElement("horizontal_fov")->Set(M_PI_2);
 
     sdf::ElementPtr ptr = this->dataPtr->cameraElem->GetElement("image");
-    ptr->GetElement("width")->Set(horzRangeCountPerCamera);
-    ptr->GetElement("height")->Set(vertRangeCountPerCamera);
+    ptr->GetElement("width")->Set(camera_resolution);
+    ptr->GetElement("height")->Set(camera_resolution);
     ptr->GetElement("format")->Set("FLOAT32");
 
     ptr = this->dataPtr->cameraElem->GetElement("clip");
@@ -441,12 +431,6 @@ event::ConnectionPtr GpuRaySensor::ConnectNewLaserFrame(
   const std::string &)> _subscriber)
 {
   return this->dataPtr->laserCam->ConnectNewLaserFrame(_subscriber);
-}
-
-//////////////////////////////////////////////////
-unsigned int GpuRaySensor::CameraCount() const
-{
-  return this->dataPtr->laserCam->CameraCount();
 }
 
 //////////////////////////////////////////////////

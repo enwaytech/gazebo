@@ -95,6 +95,8 @@ set (headers
   DynamicRenderable.hh
   FPSViewController.hh
   GpuLaser.hh
+  GpuLaserCameraSetting.hh
+  GpuLaserCubeFace.hh
   GpuLaserDataIterator.hh
   GpuLaserDataIteratorImpl.hh
   Grid.hh
