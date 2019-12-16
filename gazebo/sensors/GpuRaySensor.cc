@@ -189,7 +189,7 @@ void GpuRaySensor::Init()
     if (hfov > 2 * M_PI)
     {
       hfov = 2 * M_PI;
-      gzwarn << "Horizontal FOV for GPU laser is capped at 180 degrees.\n";
+      gzwarn << "Horizontal FOV for GPU laser is capped at 360 degrees.\n";
     }
 
     this->dataPtr->laserCam->SetHorzHalfAngle(
