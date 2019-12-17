@@ -137,7 +137,7 @@ void GpuLaser::Fini()
 //////////////////////////////////////////////////
 void GpuLaser::CreateLaserTexture(const std::string &_textureName)
 {
-  const double cameraStartAngle = this->horzHalfAngle - (this->cameraCount * this->hfov / 2);
+  const double cameraStartAngle = this->HorzHalfAngle() - ;
   this->camera->yaw(Ogre::Radian(cameraStartAngle));
 
   this->CreateOrthoCam();
@@ -181,19 +181,19 @@ void GpuLaser::CreateLaserTexture(const std::string &_textureName)
   this->dataPtr->matFirstPass->load();
   this->dataPtr->matFirstPass->setCullingMode(Ogre::CULL_NONE);
 
-  this->dataPtr->secondPassTexture =
-      Ogre::TextureManager::getSingleton().createManual(
-      _textureName + "second_pass",
-      "General",
-      Ogre::TEX_TYPE_2D,
-      this->dataPtr->w2nd, this->dataPtr->h2nd, 0,
-      Ogre::PF_FLOAT32_RGB,
-      Ogre::TU_RENDERTARGET).getPointer();
-
-  this->Set2ndPassTarget(
-      this->dataPtr->secondPassTexture->getBuffer()->getRenderTarget());
-
-  this->dataPtr->secondPassTarget->setAutoUpdated(false);
+//  this->dataPtr->secondPassTexture =
+//      Ogre::TextureManager::getSingleton().createManual(
+//      _textureName + "second_pass",
+//      "General",
+//      Ogre::TEX_TYPE_2D,
+//      this->dataPtr->w2nd, this->dataPtr->h2nd, 0,
+//      Ogre::PF_FLOAT32_RGB,
+//      Ogre::TU_RENDERTARGET).getPointer();
+//
+//  this->Set2ndPassTarget(
+//      this->dataPtr->secondPassTexture->getBuffer()->getRenderTarget());
+//
+//  this->dataPtr->secondPassTarget->setAutoUpdated(false);
 
   this->dataPtr->matSecondPass = (Ogre::Material*)(
   Ogre::MaterialManager::getSingleton().getByName("Gazebo/LaserScan2nd").get());
@@ -233,31 +233,49 @@ void GpuLaser::PostRender()
   {
     this->dataPtr->firstPassTargets[i]->swapBuffers();
   }
-  this->dataPtr->secondPassTarget->swapBuffers();
 
   if (this->newData && this->captureData)
   {
-    Ogre::HardwarePixelBufferSharedPtr pixelBuffer;
+    const unsigned int width = this->dataPtr->firstPassViewports[0]->getActualWidth();
 
-    unsigned int width = this->dataPtr->secondPassViewport->getActualWidth();
-    unsigned int height = this->dataPtr->secondPassViewport->getActualHeight();
-
-    // Get access to the buffer and make an image and write it to file
-    pixelBuffer = this->dataPtr->secondPassTexture->getBuffer();
-
-    size_t size = Ogre::PixelUtil::getMemorySize(
-                    width, height, 1, Ogre::PF_FLOAT32_RGB);
+    const size_t size = Ogre::PixelUtil::getMemorySize(
+        4 * width, 1, 1, Ogre::PF_FLOAT32_RGB);
 
     // Blit the depth buffer if needed
     if (!this->dataPtr->laserBuffer)
+    {
       this->dataPtr->laserBuffer = new float[size];
+    }
 
     memset(this->dataPtr->laserBuffer, 255, size);
 
-    Ogre::PixelBox dstBox(width, height,
-        1, Ogre::PF_FLOAT32_RGB, this->dataPtr->laserBuffer);
+    for (unsigned int i = 0; i < this->dataPtr->textureCount; ++i)
+    {
+      const Ogre::HardwarePixelBufferSharedPtr pixelBuffer = this->dataPtr->firstPassTextures[i]->getBuffer();
 
-    pixelBuffer->blitToMemory(dstBox);
+      const unsigned int frameWidth = this->dataPtr->firstPassViewports[i]->getActualWidth();
+      const unsigned int frameHeight = this->dataPtr->firstPassViewports[i]->getActualHeight();
+
+      const size_t frameSize = Ogre::PixelUtil::getMemorySize(
+          frameWidth, frameHeight, 1, Ogre::PF_FLOAT32_RGB);
+
+      std::vector<float> frame(frameSize, 255);
+
+      Ogre::PixelBox dstBox(frameWidth, frameHeight,
+                            1, Ogre::PF_FLOAT32_RGB, frame.data());
+
+      pixelBuffer->blitToMemory(dstBox);
+
+      // TODO read rays
+
+      for (unsigned int x = 0; x < frameWidth; x++)
+      {
+        this->dataPtr->laserBuffer[i * frameWidth + x] = frame.at(x);
+      }
+    }
+
+    assert(this->dataPtr->w2nd == 4*width);
+    assert(this->dataPtr->h2nd == 1);
 
     if (!this->dataPtr->laserScan)
     {
