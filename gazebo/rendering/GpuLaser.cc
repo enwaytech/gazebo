@@ -237,8 +237,7 @@ void GpuLaser::PostRender()
 
   if (this->newData && this->captureData)
   {
-    const size_t size = Ogre::PixelUtil::getMemorySize(
-        this->dataPtr->w2nd, this->dataPtr->h2nd, 1, Ogre::PF_FLOAT32_RGB);
+    const size_t size = this->dataPtr->w2nd * this->dataPtr->h2nd * 3;
 
     // Blit the depth buffer if needed
     if (this->dataPtr->laserBuffer.empty())
@@ -253,8 +252,7 @@ void GpuLaser::PostRender()
       const unsigned int frameWidth = this->dataPtr->firstPassViewports[i]->getActualWidth();
       const unsigned int frameHeight = this->dataPtr->firstPassViewports[i]->getActualHeight();
 
-      const size_t frameSize = Ogre::PixelUtil::getMemorySize(
-          frameWidth, frameHeight, 1, Ogre::PF_FLOAT32_RGB);
+      const size_t frameSize = frameWidth * frameHeight * 3;
 
       std::vector<float>& frame = this->dataPtr->frames.at(i);
       frame.resize(frameSize);
@@ -273,28 +271,29 @@ void GpuLaser::PostRender()
 
       // TODO read rays
 
-      const unsigned int centerRowOffset = 0;// frameSize / 2;
+      const unsigned int centerRowOffset = frameSize / 2;
 
       if (i < 4)
       {
-        for (unsigned int x = 0; x < frameWidth; x++)
+        const size_t row_width_elem = frameWidth * 3;
+        auto row_begin = frame.begin() + centerRowOffset;
+
+        for (unsigned int j = 0; j < frameWidth; j++)
         {
-          this->dataPtr->laserBuffer[i * frameWidth + x] = frame.at(centerRowOffset + x);
-          this->dataPtr->laserBuffer[i * frameWidth + x + 1] = frame.at(centerRowOffset + x + 1);
-          this->dataPtr->laserBuffer[i * frameWidth + x + 2] = frame.at(centerRowOffset + x + 2);
+          const auto input_position = row_begin + (frameWidth - j - 1) * 3;
+          const auto output_position = this->dataPtr->laserBuffer.begin() + i*row_width_elem + j * 3;
+          std::copy_n(input_position, 3, output_position);
         }
       }
     }
 
     if (!this->dataPtr->laserScan)
     {
-      int len = this->dataPtr->w2nd * this->dataPtr->h2nd * 3;
-      this->dataPtr->laserScan = new float[len];
+      this->dataPtr->laserScan = new float[size];
     }
 
     memcpy(this->dataPtr->laserScan, this->dataPtr->laserBuffer.data(),
-           this->dataPtr->w2nd * this->dataPtr->h2nd * 3 *
-           sizeof(this->dataPtr->laserScan[0]));
+           size * sizeof(this->dataPtr->laserScan[0]));
 
     this->dataPtr->newLaserFrame(this->dataPtr->laserScan, this->dataPtr->w2nd,
         this->dataPtr->h2nd, 3, "BLABLA");
@@ -879,18 +878,6 @@ void GpuLaser::SetNearClip(const double _near)
 void GpuLaser::SetFarClip(const double _far)
 {
   this->farClip = _far;
-}
-
-//////////////////////////////////////////////////
-unsigned int GpuLaser::CameraCount() const
-{
-  return this->cameraCount;
-}
-
-//////////////////////////////////////////////////
-void GpuLaser::SetCameraCount(const unsigned int _cameraCount)
-{
-  this->cameraCount = _cameraCount;
 }
 
 //////////////////////////////////////////////////
