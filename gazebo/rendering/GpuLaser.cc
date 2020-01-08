@@ -58,7 +58,7 @@ GpuLaser::GpuLaser(const std::string &_namePrefix, ScenePtr _scene,
 : Camera(_namePrefix, _scene, _autoRender),
   dataPtr(new GpuLaserPrivate)
 {
-  this->dataPtr->laserBuffer = NULL;
+  //this->dataPtr->laserBuffer = NULL;
   this->dataPtr->laserScan = NULL;
   this->dataPtr->matFirstPass = NULL;
   this->dataPtr->matSecondPass = NULL;
@@ -102,6 +102,20 @@ void GpuLaser::Init()
 //////////////////////////////////////////////////
 void GpuLaser::Fini()
 {
+  for (unsigned int i = 0; i < this->dataPtr->frames.size(); i++)
+  {
+    auto& frame = this->dataPtr->frames.at(i);
+    const unsigned int frameWidth = this->dataPtr->firstPassViewports[i]->getActualWidth();
+    const unsigned int frameHeight = this->dataPtr->firstPassViewports[i]->getActualHeight();
+
+    Ogre::PixelBox box(frameWidth, frameHeight, 1, Ogre::PF_FLOAT32_RGB, frame.data());
+    Ogre::Image output_img;
+    output_img = output_img.loadDynamicImage(static_cast<unsigned char*>(box.data), box.getWidth(), box.getHeight(),Ogre::PF_FLOAT32_RGB);
+    output_img.save("Gpu_cam_img_" + std::to_string(i) + ".exr");
+
+    gzmsg << "Saved image to file " << i << "\n";
+  }
+
   for (unsigned int i = 0; i < this->dataPtr->textureCount; ++i)
   {
     if (this->dataPtr->firstPassTextures[i])
@@ -128,8 +142,8 @@ void GpuLaser::Fini()
   this->dataPtr->texIdx.clear();
   this->dataPtr->texCount = 0;
 
-  delete [] this->dataPtr->laserBuffer;
-  this->dataPtr->laserBuffer = nullptr;
+  //delete [] this->dataPtr->laserBuffer;
+  //this->dataPtr->laserBuffer = nullptr;
   delete [] this->dataPtr->laserScan;
   this->dataPtr->laserScan = nullptr;
 
@@ -139,27 +153,12 @@ void GpuLaser::Fini()
 //////////////////////////////////////////////////
 void GpuLaser::CreateLaserTexture(const std::string &_textureName)
 {
-  const double cameraStartAngle = this->HorzHalfAngle() - ;
-  this->camera->yaw(Ogre::Radian(cameraStartAngle));
+  //const double cameraStartAngle = this->HorzHalfAngle() - ;
+  //this->camera->yaw(Ogre::Radian(cameraStartAngle));
 
   this->CreateOrthoCam();
 
   this->dataPtr->textureCount = 6; // TODO smarter
-
-//  if (this->dataPtr->textureCount == 2)
-//  {
-//    this->dataPtr->cameraYaws[0] = -this->hfov/2;
-//    this->dataPtr->cameraYaws[1] = +this->hfov;
-//    this->dataPtr->cameraYaws[2] = 0;
-//    this->dataPtr->cameraYaws[3] = -this->hfov/2;
-//  }
-//  else
-//  {
-//    this->dataPtr->cameraYaws[0] = -this->hfov;
-//    this->dataPtr->cameraYaws[1] = +this->hfov;
-//    this->dataPtr->cameraYaws[2] = +this->hfov;
-//    this->dataPtr->cameraYaws[3] = -this->hfov;
-//  }
 
   for (unsigned int i = 0; i < this->dataPtr->textureCount; ++i)
   {
@@ -238,18 +237,14 @@ void GpuLaser::PostRender()
 
   if (this->newData && this->captureData)
   {
-    const unsigned int width = this->dataPtr->firstPassViewports[0]->getActualWidth();
-
     const size_t size = Ogre::PixelUtil::getMemorySize(
-        4 * width, 1, 1, Ogre::PF_FLOAT32_RGB);
+        this->dataPtr->w2nd, this->dataPtr->h2nd, 1, Ogre::PF_FLOAT32_RGB);
 
     // Blit the depth buffer if needed
-    if (!this->dataPtr->laserBuffer)
+    if (this->dataPtr->laserBuffer.empty())
     {
-      this->dataPtr->laserBuffer = new float[size];
+      this->dataPtr->laserBuffer.resize(size);
     }
-
-    memset(this->dataPtr->laserBuffer, 255, size);
 
     for (unsigned int i = 0; i < this->dataPtr->textureCount; ++i)
     {
@@ -261,23 +256,35 @@ void GpuLaser::PostRender()
       const size_t frameSize = Ogre::PixelUtil::getMemorySize(
           frameWidth, frameHeight, 1, Ogre::PF_FLOAT32_RGB);
 
-      std::vector<float> frame(frameSize, 255);
+      std::vector<float>& frame = this->dataPtr->frames.at(i);
+      frame.resize(frameSize);
 
       Ogre::PixelBox dstBox(frameWidth, frameHeight,
                             1, Ogre::PF_FLOAT32_RGB, frame.data());
 
       pixelBuffer->blitToMemory(dstBox);
 
+      // debug output of depth image
+      Ogre::Image output_img;
+      output_img = output_img.loadDynamicImage(static_cast<unsigned char*>(dstBox.data), dstBox.getWidth(), dstBox.getHeight(), Ogre::PF_FLOAT32_RGB);
+      output_img.save("Gpu_cam_img_" + std::to_string(i) + ".exr");
+      gzmsg << "Saved image to file " << i << "\n";
+      // debug output of depth image
+
       // TODO read rays
 
-      for (unsigned int x = 0; x < frameWidth; x++)
+      const unsigned int centerRowOffset = 0;// frameSize / 2;
+
+      if (i < 4)
       {
-        this->dataPtr->laserBuffer[i * frameWidth + x] = frame.at(x);
+        for (unsigned int x = 0; x < frameWidth; x++)
+        {
+          this->dataPtr->laserBuffer[i * frameWidth + x] = frame.at(centerRowOffset + x);
+          this->dataPtr->laserBuffer[i * frameWidth + x + 1] = frame.at(centerRowOffset + x + 1);
+          this->dataPtr->laserBuffer[i * frameWidth + x + 2] = frame.at(centerRowOffset + x + 2);
+        }
       }
     }
-
-    assert(this->dataPtr->w2nd == 4*width);
-    assert(this->dataPtr->h2nd == 1);
 
     if (!this->dataPtr->laserScan)
     {
@@ -285,7 +292,7 @@ void GpuLaser::PostRender()
       this->dataPtr->laserScan = new float[len];
     }
 
-    memcpy(this->dataPtr->laserScan, this->dataPtr->laserBuffer,
+    memcpy(this->dataPtr->laserScan, this->dataPtr->laserBuffer.data(),
            this->dataPtr->w2nd * this->dataPtr->h2nd * 3 *
            sizeof(this->dataPtr->laserScan[0]));
 
@@ -445,81 +452,20 @@ void GpuLaser::RenderImpl()
 
   this->dataPtr->currentMat = this->dataPtr->matFirstPass;
 
-  // first camera
-  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[0];
-  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[0], this->dataPtr->matFirstPass, this->camera);
-  this->dataPtr->firstPassTargets[0]->update(false);
+  for (unsigned int i = 0; i < 6; i++)
+  {
+    this->ApplyCameraSetting(this->dataPtr->cameraSettings.at(i));
 
-  this->sceneNode->roll(Ogre::Radian(M_PI_2));
+    this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[i];
+    this->UpdateRenderTarget(this->dataPtr->firstPassTargets[i], this->dataPtr->matFirstPass, this->camera);
+    this->dataPtr->firstPassTargets[i]->update(false);
 
-  // second camera
-  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[1];
-  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[1], this->dataPtr->matFirstPass, this->camera);
-  this->dataPtr->firstPassTargets[1]->update(false);
-
-  this->sceneNode->roll(Ogre::Radian(M_PI_2));
-
-  // third camera
-  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[2];
-  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[2], this->dataPtr->matFirstPass, this->camera);
-  this->dataPtr->firstPassTargets[2]->update(false);
-
-  this->sceneNode->roll(Ogre::Radian(M_PI_2));
-
-  // fourth camera
-  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[3];
-  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[3], this->dataPtr->matFirstPass, this->camera);
-  this->dataPtr->firstPassTargets[3]->update(false);
-
-  this->sceneNode->roll(Ogre::Radian(M_PI_2));
-  this->sceneNode->pitch(Ogre::Radian(M_PI_2));
-
-  // top camera
-  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[4];
-  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[4], this->dataPtr->matFirstPass, this->camera);
-  this->dataPtr->firstPassTargets[4]->update(false);
-
-  this->sceneNode->pitch(Ogre::Radian(-M_PI));
-
-  // bottom camera
-  this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[5];
-  this->UpdateRenderTarget(this->dataPtr->firstPassTargets[5], this->dataPtr->matFirstPass, this->camera);
-  this->dataPtr->firstPassTargets[5]->update(false);
-
-  this->sceneNode->pitch(Ogre::Radian(M_PI_2));
-
-//  for (unsigned int i = 0; i < this->dataPtr->textureCount; ++i)
-//  {
-////    if (this->dataPtr->textureCount > 1)
-////    {
-////      // Cannot call Camera::RotateYaw because it rotates in world frame,
-////      // but we need rotation in camera local frame
-////      this->sceneNode->roll(Ogre::Radian(this->dataPtr->cameraYaws[i]));
-////    }
-//
-//    this->dataPtr->currentMat = this->dataPtr->matFirstPass;
-//    this->dataPtr->currentTarget = this->dataPtr->firstPassTargets[i];
-//
-//    this->UpdateRenderTarget(this->dataPtr->firstPassTargets[i],
-//                  this->dataPtr->matFirstPass, this->camera);
-//    this->dataPtr->firstPassTargets[i]->update(false);
-//  }
-//
-//  if (this->dataPtr->textureCount > 1)
-//      this->sceneNode->roll(Ogre::Radian(this->dataPtr->cameraYaws[3]));
+    this->RevertCameraSetting(this->dataPtr->cameraSettings.at(i));
+  }
 
   sceneMgr->removeRenderObjectListener(this);
 
   double firstPassDur = firstPassTimer.GetElapsed().Double();
-//  secondPassTimer.Start();
-//
-//  this->dataPtr->visual->SetVisible(true);
-//
-//  this->UpdateRenderTarget(this->dataPtr->secondPassTarget,
-//                this->dataPtr->matSecondPass, this->dataPtr->orthoCam, true);
-//  this->dataPtr->secondPassTarget->update(false);
-//
-//  this->dataPtr->visual->SetVisible(false);
 
   sceneMgr->_suppressRenderStateChanges(false);
 
@@ -530,7 +476,7 @@ void GpuLaser::RenderImpl()
 //////////////////////////////////////////////////
 const float* GpuLaser::LaserData() const
 {
-  return this->dataPtr->laserBuffer;
+  return this->dataPtr->laserBuffer.data();
 }
 
 //////////////////////////////////////////////////
@@ -543,7 +489,7 @@ GpuLaser::DataIter GpuLaser::LaserDataBegin() const
   const unsigned int rangeOffset = 0;
   // intensity data in G channel
   const unsigned int intenOffset = 1;
-  return DataIter(index, this->dataPtr->laserBuffer, skip, rangeOffset,
+  return DataIter(index, this->dataPtr->laserBuffer.data(), skip, rangeOffset,
       intenOffset, this->dataPtr->w2nd);
 }
 
@@ -558,7 +504,7 @@ GpuLaser::DataIter GpuLaser::LaserDataEnd() const
   const unsigned int rangeOffset = 0;
   // intensity data in G channel
   const unsigned int intenOffset = 1;
-  return DataIter(index, this->dataPtr->laserBuffer, skip, rangeOffset,
+  return DataIter(index, this->dataPtr->laserBuffer.data(), skip, rangeOffset,
       intenOffset, this->dataPtr->w2nd);
 }
 
@@ -966,4 +912,24 @@ event::ConnectionPtr GpuLaser::ConnectNewLaserFrame(
     const std::string &_format)> _subscriber)
 {
   return this->dataPtr->newLaserFrame.Connect(_subscriber);
+}
+
+//////////////////////////////////////////////////
+void GpuLaser::SetCameraSettings(std::array<GpuLaserCameraSetting, 6> settings)
+{
+  this->dataPtr->cameraSettings = settings;
+}
+
+//////////////////////////////////////////////////
+void GpuLaser::ApplyCameraSetting(const GpuLaserCameraSetting &setting)
+{
+  this->sceneNode->roll(Ogre::Radian(setting.azimuthOffset));
+  this->sceneNode->yaw(Ogre::Radian(setting.elevationOffset));
+}
+
+//////////////////////////////////////////////////
+void GpuLaser::RevertCameraSetting(const GpuLaserCameraSetting &setting)
+{
+  this->sceneNode->yaw(Ogre::Radian(-setting.elevationOffset));
+  this->sceneNode->roll(Ogre::Radian(-setting.azimuthOffset));
 }
