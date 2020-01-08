@@ -197,22 +197,14 @@ void GpuRaySensor::Init()
     this->dataPtr->laserCam->SetHorzHalfAngle(
       (this->AngleMax() + this->AngleMin()).Radian() / 2.0);
 
-    // determine number of cameras to use
-    const unsigned int horizontalCameraCount =
-    //    std::min(std::ceil(hfovTotal / M_PI), 4.);
-          4;
-
-    this->dataPtr->laserCam->SetCameraCount(horizontalCameraCount);
-
-    // horizontal fov of single frame
-    const double hfovPerCamera = M_PI_2;
+    // we use a fixed square camera FOV
     this->dataPtr->laserCam->SetHorzFOV(M_PI_2);
     this->dataPtr->laserCam->SetCosHorzFOV(M_PI_2);
 
     // Fixed minimum resolution of texture to reduce steps in ranges
     // when hitting surfaces where the angle between ray and surface is small.
     // Also have to keep in mind the GPU's max. texture size
-    unsigned int horzRangeCountPerCamera = this->dataPtr->horzRangeCount / horizontalCameraCount;
+    unsigned int horzRangeCountPerCamera = this->dataPtr->horzRangeCount / 4;
     unsigned int vertRangeCountPerCamera = this->dataPtr->vertRangeCount;
 
     // vertical laser setup
@@ -254,7 +246,7 @@ void GpuRaySensor::Init()
         (this->VerticalAngleMin() <= upperVertAngleLimit) ||
         (this->VerticalAngleMax() >= -upperVertAngleLimit);
 
-    const double vfovPerCamera = M_PI;
+    const double vfovPerCamera = M_PI_2;
     this->dataPtr->laserCam->SetVertFOV(vfovPerCamera);
     this->dataPtr->laserCam->SetVertHalfAngle((this->VerticalAngleMax()
                      + this->VerticalAngleMin()).Radian() / 2.0);
@@ -288,9 +280,9 @@ void GpuRaySensor::Init()
       this->dataPtr->laserCam->SetRayCountRatio(1.0);
     }
 
-    const unsigned int camera_resolution = std::max(this->RayCount(), this->VerticalRayCount());
+    const unsigned int camera_resolution = std::max(this->RayCount() / 4, this->VerticalRayCount() / 2);
 
-    const double horizStartAngle = this->AngleMin().Radian();
+    const double horizStartAngle = this->AngleMin().Radian() + M_PI_4;
     std::array<rendering::GpuLaserCameraSetting, 6> settings =
         {{
              {horizStartAngle, 0.0},
@@ -306,7 +298,7 @@ void GpuRaySensor::Init()
     this->dataPtr->cameraElem.reset(new sdf::Element);
     sdf::initFile("camera.sdf", this->dataPtr->cameraElem);
 
-    this->dataPtr->cameraElem->GetElement("horizontal_fov")->Set(hfovPerCamera);
+    this->dataPtr->cameraElem->GetElement("horizontal_fov")->Set(M_PI_2);
 
     sdf::ElementPtr ptr = this->dataPtr->cameraElem->GetElement("image");
     ptr->GetElement("width")->Set(camera_resolution);
@@ -439,12 +431,6 @@ event::ConnectionPtr GpuRaySensor::ConnectNewLaserFrame(
   const std::string &)> _subscriber)
 {
   return this->dataPtr->laserCam->ConnectNewLaserFrame(_subscriber);
-}
-
-//////////////////////////////////////////////////
-unsigned int GpuRaySensor::CameraCount() const
-{
-  return this->dataPtr->laserCam->CameraCount();
 }
 
 //////////////////////////////////////////////////
