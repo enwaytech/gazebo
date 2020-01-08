@@ -49,6 +49,7 @@ namespace gazebo
   {
     // Forward declare private data.
     class GpuLaserPrivate;
+    class GpuLaserCameraSetting;
 
     /// \addtogroup gazebo_rendering Rendering
     /// \{
@@ -207,6 +208,8 @@ namespace gazebo
       /// \param[in] _rayCountRatio ray count ratio (equivalent to aspect ratio)
       public: void SetRayCountRatio(const double _rayCountRatio);
 
+    public: void SetCameraSettings(std::array<GpuLaserCameraSetting, 6> settings);
+
       // Documentation inherited.
       private: virtual void RenderImpl();
 
@@ -250,6 +253,9 @@ namespace gazebo
       /// \brief Sets second pass target.
       /// \param[in] _target Render target for the second pass.
       private: virtual void Set2ndPassTarget(Ogre::RenderTarget *_target);
+
+      private: void ApplyCameraSetting(const GpuLaserCameraSetting &setting);
+      private: void RevertCameraSetting(const GpuLaserCameraSetting &setting);
 
       /// \brief Horizontal half angle.
       protected: double horzHalfAngle;

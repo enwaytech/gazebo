@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "gazebo/rendering/GpuLaserCameraSetting.hh"
 #include "gazebo/rendering/RenderTypes.hh"
 
 #include "gazebo/common/Event.hh"
@@ -59,8 +60,10 @@ namespace gazebo
                    unsigned int _height, unsigned int _depth,
                    const std::string &_format)> newLaserFrame;
 
+    public: std::array<std::vector<float>, 6> frames;
+
       /// \brief Raw buffer of laser data.
-      public: float *laserBuffer;
+    public: std::vector<float> laserBuffer;
 
       /// \brief Outgoing laser data, used by newLaserFrame event.
       public: float *laserScan;
@@ -94,6 +97,8 @@ namespace gazebo
 
       /// \brief A list of camera angles for first pass rendering.
       public: double cameraYaws[4];
+
+      public: std::array<GpuLaserCameraSetting, 6> cameraSettings;
 
       /// \brief Temporary pointer to the current render target.
       public: Ogre::RenderTarget *currentTarget;
