@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <sdf/sdf.hh>
 
@@ -213,7 +214,40 @@ namespace gazebo
       /// \param[in] _rayCountRatio ray count ratio (equivalent to aspect ratio)
       public: void SetRayCountRatio(const double _rayCountRatio);
 
-    public: void SetCameraSettings(std::array<GpuLaserCameraSetting, 6> settings);
+      public: void SetCameraSettings(std::array<GpuLaserCameraSetting, 6> settings);
+
+      public: void InitMapping(std::vector<double> azimuth_values,
+        std::vector<double> elevation_values);
+
+      /// \brief Cube map face ID
+      public: enum class CubeFaceId
+      {
+        CUBE_FRONT_FACE,
+        CUBE_LEFT_FACE,
+        CUBE_REAR_FACE,
+        CUBE_RIGHT_FACE,
+        CUBE_TOP_FACE,
+        CUBE_BOTTOM_FACE
+      };
+
+      /// \brief Stores mapping of a single ray (combination of azimuth and elevation)
+      /// First element is ID of the corresponding cube map face
+      /// Second element is x/y coordinate of ray intersection with face (in range [0,1]x[0,1])
+      public: typedef std::pair<CubeFaceId, ignition::math::Vector2d> MappingPoint;
+
+      /// \brief Finds the corresponding cube map face and the coordinates of intersection of the view ray
+      /// \param[in] azimuth Horizontal angle relative to minimum angle
+      /// \param[in] elevation Vertical angle
+      /// \returns Mapping for the given ray
+      public: static MappingPoint FindCubeFaceMapping(const double azimuth, const double elevation);
+
+      public: static CubeFaceId FindCubeFace(const double azimuth, const double elevation);
+
+      public: static ignition::math::Vector3d ViewingRay(const double azimuth, const double elevation);
+
+      /// \brief Stores the mapping of all rays
+      /// First dimension is azimuth, second dimension is elevation
+      private: std::vector<std::vector<MappingPoint>> mapping;
 
       // Documentation inherited.
       private: virtual void RenderImpl();
