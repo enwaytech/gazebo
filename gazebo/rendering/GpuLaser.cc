@@ -15,6 +15,7 @@
  *
 */
 
+#include <algorithm>
 #include <sstream>
 
 #include <ignition/common/Profiler.hh>
@@ -102,6 +103,11 @@ void GpuLaser::Fini()
 {
   for (unsigned int i = 0; i < this->dataPtr->frames.size(); i++)
   {
+    if (!this->dataPtr->firstPassViewports[i])
+    {
+      continue;
+    }
+
     auto& frame = this->dataPtr->frames.at(i);
     const unsigned int frameWidth = this->dataPtr->firstPassViewports[i]->getActualWidth();
     const unsigned int frameHeight = this->dataPtr->firstPassViewports[i]->getActualHeight();
@@ -912,4 +918,153 @@ void GpuLaser::RevertCameraSetting(const GpuLaserCameraSetting &setting)
 {
   this->sceneNode->yaw(Ogre::Radian(-setting.elevationOffset));
   this->sceneNode->roll(Ogre::Radian(-setting.azimuthOffset));
+}
+
+//////////////////////////////////////////////////
+void GpuLaser::InitMapping(std::vector<double> azimuth_values,
+    std::vector<double> elevation_values)
+{
+  // ensure angle values are sorted
+  std::sort(azimuth_values.begin(), azimuth_values.end());
+  std::sort(elevation_values.begin(), elevation_values.end());
+
+  mapping.clear();
+  mapping.reserve(azimuth_values.size());
+
+  for (const double azimuth : azimuth_values)
+  {
+    const double& min_azimuth = azimuth_values.front();
+
+    mapping.emplace_back();
+    mapping.back().reserve(elevation_values.size());
+
+    for (const double elevation : elevation_values)
+    {
+      mapping.back().push_back(FindCubeFaceMapping(azimuth - min_azimuth, elevation));
+    }
+  }
+}
+
+//////////////////////////////////////////////////
+GpuLaser::MappingPoint GpuLaser::FindCubeFaceMapping(const double azimuth, const double elevation)
+{
+  if (azimuth < 0)
+  {
+    throw std::runtime_error("Azimuth angle should be relative to minimum angle, i.e. it must not be negative!");
+  }
+
+  const CubeFaceId face_id = FindCubeFace(azimuth, elevation);
+
+  // center point of the face plane
+  ignition::math::Vector3d plane_point;
+  switch (face_id)
+  {
+    case CubeFaceId::CUBE_FRONT_FACE:
+      plane_point = {0.5, 0., 0.};
+      break;
+    case CubeFaceId::CUBE_LEFT_FACE:
+      plane_point = {0., 0.5, 0.};
+      break;
+    case CubeFaceId::CUBE_REAR_FACE:
+      plane_point = {-0.5, 0., 0.};
+      break;
+    case CubeFaceId::CUBE_RIGHT_FACE:
+      plane_point = {0., -0.5, 0.};
+      break;
+    case CubeFaceId::CUBE_TOP_FACE:
+      plane_point = {0., 0., 0.5};
+      break;
+    case CubeFaceId::CUBE_BOTTOM_FACE:
+      plane_point = {0., 0., -0.5};
+      break;
+    default:
+      throw std::runtime_error("Invalid face ID");
+  }
+
+  const ignition::math::Vector3d plane_normal = plane_point.Normalized();
+  const ignition::math::Vector3d viewing_ray = ViewingRay(azimuth, elevation);
+
+  // calculate intersection of viewing ray with cube face plane
+  const double s = (-plane_normal).Dot(-plane_point) / plane_normal.Dot(viewing_ray);
+
+  // offset from face center to intersection
+  const ignition::math::Vector3d intersection_offset = s * viewing_ray - plane_point;
+
+  // offset in the 2D image on the face
+  ignition::math::Vector2d intersection_image_offset;
+  switch (face_id)
+  {
+    case CubeFaceId::CUBE_FRONT_FACE:
+      intersection_image_offset = {-intersection_offset.Z(),
+                                   -intersection_offset.Y()};
+      break;
+    case CubeFaceId::CUBE_LEFT_FACE:
+      intersection_image_offset = {-intersection_offset.Z(),
+                                   intersection_offset.X()};
+      break;
+    case CubeFaceId::CUBE_REAR_FACE:
+      intersection_image_offset = {-intersection_offset.Z(),
+                                   intersection_offset.Y()};
+      break;
+    case CubeFaceId::CUBE_RIGHT_FACE:
+      intersection_image_offset = {-intersection_offset.Z(),
+                                   -intersection_offset.X()};
+      break;
+    case CubeFaceId::CUBE_TOP_FACE:
+      intersection_image_offset = {intersection_offset.X(),
+                                   -intersection_offset.Y()};
+      break;
+    case CubeFaceId::CUBE_BOTTOM_FACE:
+      intersection_image_offset = {-intersection_offset.X(),
+                                   -intersection_offset.Y()};
+      break;
+    default:
+      throw std::runtime_error("Invalid face ID");
+  }
+
+  // shift offset from image center to origin
+  intersection_image_offset += {0.5, 0.5};
+
+  return {face_id, intersection_image_offset};
+}
+
+GpuLaser::CubeFaceId GpuLaser::FindCubeFace(const double azimuth, const double elevation)
+{
+  const ignition::math::Vector3d v = ViewingRay(azimuth, elevation);
+
+  // find corresponding cube face
+  if (std::abs(v.Z()) > std::abs(v.X()) || std::abs(v.Z()) > std::abs(v.Y()))
+  {
+    if (v.Z() >= 0)
+    {
+      return CubeFaceId::CUBE_TOP_FACE;
+    }
+    else
+    {
+      return CubeFaceId::CUBE_BOTTOM_FACE;
+    }
+  }
+  else if (azimuth < M_PI_2)
+  {
+    return CubeFaceId::CUBE_FRONT_FACE;
+  }
+  else if (azimuth >= M_PI_2 && azimuth < M_PI)
+  {
+    return CubeFaceId::CUBE_LEFT_FACE;
+  }
+  else if (azimuth >= M_PI && azimuth < 3. * M_PI_2)
+  {
+    return CubeFaceId::CUBE_REAR_FACE;
+  }
+  else
+  {
+    return CubeFaceId::CUBE_RIGHT_FACE;
+  }
+}
+
+ignition::math::Vector3d GpuLaser::ViewingRay(const double azimuth, const double elevation)
+{
+  return {std::cos(azimuth - M_PI_4) * std::cos(elevation),
+          std::sin(azimuth - M_PI_4) * std::cos(elevation),
+          std::sin(elevation)};
 }

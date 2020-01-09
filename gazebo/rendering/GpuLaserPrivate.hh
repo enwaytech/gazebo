@@ -60,10 +60,10 @@ namespace gazebo
                    unsigned int _height, unsigned int _depth,
                    const std::string &_format)> newLaserFrame;
 
-    public: std::array<std::vector<float>, 6> frames;
+      public: std::array<std::vector<float>, 6> frames;
 
       /// \brief Raw buffer of laser data.
-    public: std::vector<float> laserBuffer;
+      public: std::vector<float> laserBuffer;
 
       /// \brief Outgoing laser data, used by newLaserFrame event.
       public: float *laserScan;
