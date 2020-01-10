@@ -18,6 +18,7 @@
 #include <boost/algorithm/string.hpp>
 #include <ignition/common/Profiler.hh>
 #include <functional>
+#include <utility>
 #include <ignition/math.hh>
 #include <ignition/math/Helpers.hh>
 #include "gazebo/physics/World.hh"
@@ -232,20 +233,6 @@ void GpuRaySensor::Init()
       gzwarn << "Vertical FOV for GPU laser is capped at 180 degrees.\n";
     }
 
-    // this is the lower vertical angle limit. Rays with an absolute vertical angle
-    // greater than that need the top or bottom camera to cover that ray
-    const double lowerVertAngleLimit = std::asin(1. / std::sqrt(3.));
-
-    // this is the upper vertical angle limit. Rays with an absolute vertical angle
-    // greater than that don't need the horizontal cameras to cover that ray
-    const double upperVertAngleLimit = M_PI_4;
-
-    const bool topCameraEnabled = this->VerticalAngleMax() > lowerVertAngleLimit;
-    const bool bottomCameraEnabled = this->VerticalAngleMin() < -lowerVertAngleLimit;
-    const bool centerCamerasEnabled =
-        (this->VerticalAngleMin() <= upperVertAngleLimit) ||
-        (this->VerticalAngleMax() >= -upperVertAngleLimit);
-
     const double vfovPerCamera = M_PI_2;
     this->dataPtr->laserCam->SetVertFOV(vfovPerCamera);
     this->dataPtr->laserCam->SetVertHalfAngle((this->VerticalAngleMax()
@@ -278,6 +265,31 @@ void GpuRaySensor::Init()
     {
       // In case of 1 vert. ray, set a very small vertical FOV for camera
       this->dataPtr->laserCam->SetRayCountRatio(1.0);
+    }
+
+    // create sets of angles and initialize cubemap
+    // eventually, this should also be able to handle irregular spaced rays
+    // but that would require changes to the SDFormat definition of a ray sensor
+    {
+      std::set<double> azimuth_angles;
+      const double azimuth_angle_increment = hfovTotal / (this->dataPtr->horzRangeCount - 1);
+      double azimuth = this->AngleMin().Radian();
+      for (unsigned int i = 0; i < this->dataPtr->horzRangeCount; i++)
+      {
+        azimuth_angles.insert(azimuth);
+        azimuth += azimuth_angle_increment;
+      }
+
+      std::set<double> elevation_angles;
+      const double elevation_angle_increment = vfovTotal / (this->dataPtr->vertRangeCount - 1);
+      double elevation = this->VerticalAngleMin().Radian();
+      for (unsigned int i = 0; i < this->dataPtr->vertRangeCount; i++)
+      {
+        elevation_angles.insert(elevation);
+        elevation += elevation_angle_increment;
+      }
+
+      this->dataPtr->laserCam->InitMapping(azimuth_angles, elevation_angles);
     }
 
     const unsigned int camera_resolution = std::max(this->RayCount() / 4, this->VerticalRayCount() / 2);
