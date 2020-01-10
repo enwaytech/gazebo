@@ -294,18 +294,6 @@ void GpuRaySensor::Init()
 
     const unsigned int camera_resolution = std::max(this->RayCount() / 4, this->VerticalRayCount() / 2);
 
-    const double horizStartAngle = this->AngleMin().Radian() + M_PI_4;
-    std::array<rendering::GpuLaserCameraSetting, 6> settings =
-        {{
-             {horizStartAngle, 0.0},
-             {horizStartAngle + M_PI_2, 0.0},
-             {horizStartAngle + M_PI, 0.0},
-             {horizStartAngle + M_PI + M_PI_2, 0.0},
-             {horizStartAngle, M_PI_2},
-             {horizStartAngle, -M_PI_2}
-         }};
-    this->dataPtr->laserCam->SetCameraSettings(settings);
-
     // Initialize camera sdf for GpuLaser
     this->dataPtr->cameraElem.reset(new sdf::Element);
     sdf::initFile("camera.sdf", this->dataPtr->cameraElem);

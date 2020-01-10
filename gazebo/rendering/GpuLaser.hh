@@ -199,8 +199,6 @@ namespace gazebo
       /// \param[in] _rayCountRatio ray count ratio (equivalent to aspect ratio)
       public: void SetRayCountRatio(const double _rayCountRatio);
 
-      public: void SetCameraSettings(std::array<GpuLaserCameraSetting, 6> settings);
-
       public: void InitMapping(const std::set<double>& azimuth_values, const std::set<double>& elevation_values);
 
       /// \brief Finds the corresponding cube map face and the coordinates of intersection of the view ray
@@ -232,72 +230,44 @@ namespace gazebo
                                        Ogre::Camera *_cam,
                                        const bool _updateTex = false);
 
-      /// \brief Create an ortho camera.
-      private: void CreateOrthoCam();
-
-      /// \brief Create a mesh.
-      private: void CreateMesh();
-
-      /// \brief Create a canvas.
-      private: void CreateCanvas();
-
-      /// \brief Builds scaled Orthogonal Matrix from parameters.
-      /// \param[in] _left Left clip.
-      /// \param[in] _right Right clip.
-      /// \param[in] _bottom Bottom clip.
-      /// \param[in] _top Top clip.
-      /// \param[in] _near Near clip.
-      /// \param[in] _far Far clip.
-      /// \return The Scaled orthogonal Ogre::Matrix4
-      private: Ogre::Matrix4 BuildScaledOrthoMatrix(const float _left,
-          const float _right, const float _bottom, const float _top,
-          const float _near, const float _far);
-
       /// \brief Sets first pass target.
       /// \param[in] _target Render target for the first pass.
       /// \param[in] _index Index of the texture.
       private: virtual void Set1stPassTarget(Ogre::RenderTarget *_target,
                                              GpuLaserCubeFace& cube_face);
 
-      /// \brief Sets second pass target.
-      /// \param[in] _target Render target for the second pass.
-      private: virtual void Set2ndPassTarget(Ogre::RenderTarget *_target);
-
       private: void ApplyCameraSetting(const GpuLaserCameraSetting &setting);
       private: void RevertCameraSetting(const GpuLaserCameraSetting &setting);
 
       /// \brief Horizontal half angle.
-      protected: double horzHalfAngle;
+      protected: double horzHalfAngle{};
 
       /// \brief Vertical half angle.
-      protected: double vertHalfAngle;
+      protected: double vertHalfAngle{};
 
       /// \brief Ray count ratio.
-      protected: double rayCountRatio;
+      protected: double rayCountRatio{};
 
       /// \brief Horizontal field-of-view.
-      protected: double hfov;
+      protected: double hfov{};
 
       /// \brief Vertical field-of-view.
-      protected: double vfov;
+      protected: double vfov{};
 
       /// \brief Cos horizontal field-of-view.
-      protected: double chfov;
+      protected: double chfov{};
 
       /// \brief Cos vertical field-of-view.
-      protected: double cvfov;
+      protected: double cvfov{};
 
       /// \brief Near clip plane.
-      protected: double nearClip;
+      protected: double nearClip{};
 
       /// \brief Far clip plane.
-      protected: double farClip;
+      protected: double farClip{};
 
       /// \brief True if the sensor is horizontal only.
-      protected: bool isHorizontal;
-
-      /// \brief Number of cameras needed to generate the rays.
-      protected: unsigned int cameraCount;
+      protected: bool isHorizontal{};
 
       /// \internal
       /// \brief Pointer to private data.
