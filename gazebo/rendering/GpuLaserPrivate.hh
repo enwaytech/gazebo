@@ -74,20 +74,6 @@ namespace gazebo
       /// \brief Pointer to Ogre material for the sencod rendering pass.
       public: Ogre::Material *matSecondPass;
 
-      /// \brief Second pass texture.
-      public: Ogre::Texture *secondPassTexture;
-
-      /// \brief Second pass render target.
-      public: Ogre::RenderTarget *secondPassTarget;
-
-      /// \brief Second pass viewport
-      public: Ogre::Viewport *secondPassViewport;
-
-      /// \brief Number of first pass textures.
-      public: unsigned int textureCount;
-
-      /// \brief A list of camera angles for first pass rendering.
-      public: double cameraYaws[4];
 
       /// \brief Temporary pointer to the current render target.
       public: Ogre::RenderTarget *currentTarget;
@@ -95,31 +81,11 @@ namespace gazebo
       /// \brief Temporary pointer to the current material.
       public: Ogre::Material *currentMat;
 
-      /// \brief Ogre orthorgraphic camera used in the second pass for
-      /// undistortion.
-      public: Ogre::Camera *orthoCam;
-
-      /// \brief Ogre scenenode where the orthorgraphic camera is attached to.
-      public: Ogre::SceneNode *pitchNodeOrtho;
-
-      /// \brief Ogre mesh used to create a canvas for undistorting range values
-      /// in the second rendering pass.
-      public: common::Mesh *undistMesh;
-
-      /// \brief Ogre movable object created from the canvas mesh.
-      public: Ogre::MovableObject *object;
-
-      /// \brief Pointer to visual that holds the canvas.
-      public: VisualPtr visual;
-
       /// \brief Image width of second pass.
       public: unsigned int w2nd;
 
       /// \brief Image height of second pass.
       public: unsigned int h2nd;
-
-      /// \brief Time taken to complete the two rendering passes.
-      public: double lastRenderDuration;
 
       /// \brief List of texture unit indices used during the second
       /// rendering pass.
