@@ -216,7 +216,6 @@ void GpuLaser::PostRender()
 
       const unsigned int frameWidth = face.second.viewport->getActualWidth();
       const unsigned int frameHeight = face.second.viewport->getActualHeight();
-
       const size_t frameSize = frameWidth * frameHeight * 3;
 
       face.second.depth_img.resize(frameSize);
@@ -227,8 +226,31 @@ void GpuLaser::PostRender()
       pixelBuffer->blitToMemory(dstBox);
 
       // debug output of depth image
+      std::vector<float> raw_img(frameSize);
+      Ogre::PixelBox imgBox(frameWidth, frameHeight,
+                            1, Ogre::PF_FLOAT32_RGB, raw_img.data());
+      pixelBuffer->blitToMemory(imgBox);
       Ogre::Image output_img;
-      output_img = output_img.loadDynamicImage(static_cast<unsigned char*>(dstBox.data), dstBox.getWidth(), dstBox.getHeight(), Ogre::PF_FLOAT32_RGB);
+      output_img = output_img.loadDynamicImage(static_cast<unsigned char*>(imgBox.data), imgBox.getWidth(), imgBox.getHeight(), Ogre::PF_FLOAT32_RGB);
+
+      // debug draw mapping
+      for (unsigned int azimuth_i = 0; azimuth_i < this->dataPtr->w2nd; azimuth_i++)
+      {
+        for (unsigned int elevation_i = 0; elevation_i < this->dataPtr->h2nd; elevation_i++)
+        {
+          const GpuLaserCubeMappingPoint& point = mapping[azimuth_i][elevation_i];
+
+          if (point.first == face.first)
+          {
+            const auto x = static_cast<unsigned int>(point.second.X() * (this->ImageWidth() - 1));
+            const auto y = static_cast<unsigned int>(point.second.Y() * (this->ImageHeight() - 1));
+
+            output_img.setColourAt(Ogre::ColourValue(0., 1., 0.), x, y, 0);
+          }
+        }
+      }
+      // debug draw mapping
+
       output_img.save("Gpu_cam_img_" + face.second.name + ".exr");
       gzmsg << "Saved image to file " << face.second.name << "\n";
       // debug output of depth image
@@ -243,15 +265,15 @@ void GpuLaser::PostRender()
 
       for (unsigned int elevation_i = 0; elevation_i < this->dataPtr->h2nd; elevation_i++)
       {
-        const unsigned int index = (azimuth_i * this->dataPtr->h2nd + elevation_i) * 3;
+        const unsigned int index = (elevation_i * this->dataPtr->w2nd + azimuth_i) * 3;
 
         const GpuLaserCubeMappingPoint& point = mapping[azimuth_i][elevation_i];
 
         // pixel coordinates
-        const auto x = static_cast<unsigned int>(point.second.X() * this->ImageWidth());
-        const auto y = static_cast<unsigned int>(point.second.Y() * this->ImageHeight());
+        const auto x = static_cast<unsigned int>(point.second.X() * (this->ImageWidth() - 1));
+        const auto y = static_cast<unsigned int>(point.second.Y() * (this->ImageHeight() - 1));
 
-        const unsigned int frame_index = (x * this->ImageWidth() + y) * 3;
+        const unsigned int frame_index = (y * this->ImageWidth() + x) * 3;
 
         this->dataPtr->laserBuffer.at(index) = this->dataPtr->cube_map_faces.at(point.first).depth_img.at(frame_index);
         this->dataPtr->laserBuffer.at(index + 1) = this->dataPtr->cube_map_faces.at(point.first).depth_img.at(frame_index + 1);
@@ -923,11 +945,11 @@ void GpuLaser::InitMapping(const std::set<double>& azimuth_values, const std::se
   this->dataPtr->cube_map_faces.insert(
       std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_TOP_FACE, {
           "top", {}, {}, {}, {},
-          {front_face_azimuth, M_PI_2}}));
+          {front_face_azimuth, -M_PI_2}}));
   this->dataPtr->cube_map_faces.insert(
       std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, {
           "bottom", {}, {}, {}, {},
-          {front_face_azimuth, -M_PI_2}}));
+          {front_face_azimuth, M_PI_2}}));
 
   for (const double azimuth : azimuth_values)
   {
@@ -993,28 +1015,28 @@ GpuLaserCubeMappingPoint GpuLaser::FindCubeFaceMapping(const double azimuth, con
   switch (face_id)
   {
     case GpuLaserCubeFaceId::CUBE_FRONT_FACE:
-      intersection_image_offset = {-intersection_offset.Z(),
-                                   -intersection_offset.Y()};
+      intersection_image_offset = {-intersection_offset.Y(),
+                                   -intersection_offset.Z()};
       break;
     case GpuLaserCubeFaceId::CUBE_LEFT_FACE:
-      intersection_image_offset = {-intersection_offset.Z(),
-                                   intersection_offset.X()};
+      intersection_image_offset = {intersection_offset.X(),
+                                   -intersection_offset.Z()};
       break;
     case GpuLaserCubeFaceId::CUBE_REAR_FACE:
-      intersection_image_offset = {-intersection_offset.Z(),
-                                   intersection_offset.Y()};
+      intersection_image_offset = {intersection_offset.Y(),
+                                   -intersection_offset.Z()};
       break;
     case GpuLaserCubeFaceId::CUBE_RIGHT_FACE:
-      intersection_image_offset = {-intersection_offset.Z(),
-                                   -intersection_offset.X()};
+      intersection_image_offset = {-intersection_offset.X(),
+                                   -intersection_offset.Z()};
       break;
     case GpuLaserCubeFaceId::CUBE_TOP_FACE:
-      intersection_image_offset = {intersection_offset.X(),
-                                   -intersection_offset.Y()};
+      intersection_image_offset = {-intersection_offset.Y(),
+                                   intersection_offset.X()};
       break;
     case GpuLaserCubeFaceId::CUBE_BOTTOM_FACE:
-      intersection_image_offset = {-intersection_offset.X(),
-                                   -intersection_offset.Y()};
+      intersection_image_offset = {-intersection_offset.Y(),
+                                   -intersection_offset.X()};
       break;
     default:
       throw std::runtime_error("Invalid face ID");
@@ -1022,6 +1044,9 @@ GpuLaserCubeMappingPoint GpuLaser::FindCubeFaceMapping(const double azimuth, con
 
   // shift offset from image center to origin
   intersection_image_offset += {0.5, 0.5};
+
+  intersection_image_offset.Set(ignition::math::clamp(intersection_image_offset.X(), 0., 1.),
+                                ignition::math::clamp(intersection_image_offset.Y(), 0., 1.));
 
   return {face_id, intersection_image_offset};
 }
@@ -1031,7 +1056,7 @@ GpuLaserCubeFaceId GpuLaser::FindCubeFace(const double azimuth, const double ele
   const ignition::math::Vector3d v = ViewingRay(azimuth, elevation);
 
   // find corresponding cube face
-  if (std::abs(v.Z()) > std::abs(v.X()) || std::abs(v.Z()) > std::abs(v.Y()))
+  if (std::abs(v.Z()) > std::abs(v.X()) && std::abs(v.Z()) > std::abs(v.Y()))
   {
     if (v.Z() >= 0)
     {
