@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include "gazebo/rendering/GpuLaserCameraSetting.hh"
+#include "gazebo/rendering/GpuLaserCubeFace.hh"
 #include "gazebo/rendering/RenderTypes.hh"
 
 #include "gazebo/common/Event.hh"
@@ -60,13 +60,13 @@ namespace gazebo
                    unsigned int _height, unsigned int _depth,
                    const std::string &_format)> newLaserFrame;
 
-      public: std::array<std::vector<float>, 6> frames;
-
       /// \brief Raw buffer of laser data.
       public: std::vector<float> laserBuffer;
 
       /// \brief Outgoing laser data, used by newLaserFrame event.
       public: float *laserScan;
+
+      public: std::map<GpuLaserCubeFaceId, GpuLaserCubeFace> cube_map_faces;
 
       /// \brief Pointer to Ogre material for the first rendering pass.
       public: Ogre::Material *matFirstPass;
@@ -74,20 +74,11 @@ namespace gazebo
       /// \brief Pointer to Ogre material for the sencod rendering pass.
       public: Ogre::Material *matSecondPass;
 
-      /// \brief An array of first pass textures.
-      public: Ogre::Texture *firstPassTextures[6];
-
       /// \brief Second pass texture.
       public: Ogre::Texture *secondPassTexture;
 
-      /// \brief First pass render targets.
-      public: Ogre::RenderTarget *firstPassTargets[6];
-
       /// \brief Second pass render target.
       public: Ogre::RenderTarget *secondPassTarget;
-
-      /// \brief First pass viewports.
-      public: Ogre::Viewport *firstPassViewports[6];
 
       /// \brief Second pass viewport
       public: Ogre::Viewport *secondPassViewport;
@@ -97,8 +88,6 @@ namespace gazebo
 
       /// \brief A list of camera angles for first pass rendering.
       public: double cameraYaws[4];
-
-      public: std::array<GpuLaserCameraSetting, 6> cameraSettings;
 
       /// \brief Temporary pointer to the current render target.
       public: Ogre::RenderTarget *currentTarget;
