@@ -609,7 +609,7 @@ void MainWindow::About()
 
   helpTxt = "<table>"
     "<tr><td style='padding-right:20px'>"
-    "<img src=':images/gazebo_neg_60x71.png'/></td>"
+    "<img src=':images/gazebo_neg_with_enway60x71.png'/></td>"
     "<td>";
   helpTxt += GAZEBO_VERSION_HEADER;
   helpTxt += "</td></tr></table>";
@@ -644,7 +644,7 @@ void MainWindow::About()
     "</table>"
   "</div>";
 
-  QPixmap icon(":images/gazebo_neg_60x71.png");
+  QPixmap icon(":images/gazebo_neg_with_enway60x71.png");
   QMessageBox aboutBox(this);
   aboutBox.setWindowTitle("About Gazebo");
   aboutBox.setTextFormat(Qt::RichText);
