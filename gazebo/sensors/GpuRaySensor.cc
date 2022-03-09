@@ -237,6 +237,8 @@ void GpuRaySensor::Init()
     this->dataPtr->laserCam->SetVertFOV(vfovPerCamera);
     this->dataPtr->laserCam->SetVertHalfAngle((this->VerticalAngleMax()
                      + this->VerticalAngleMin()).Radian() / 2.0);
+    this->SetVerticalAngleMin(this->dataPtr->laserCam->VertHalfAngle() - (vfovTotal / 2));
+    this->SetVerticalAngleMax(this->dataPtr->laserCam->VertHalfAngle() + (vfovTotal / 2));
 
     this->dataPtr->laserCam->SetCosVertFOV(vfovPerCamera);
 
