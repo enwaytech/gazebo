@@ -143,7 +143,7 @@ void GpuLaser::CreateLaserTexture(const std::string &_textureName)
   Ogre::TextureUnitState *texUnit;
   for (const auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
   {
-    unsigned int texIndex = this->dataPtr->texCount++;
+    const int texIndex = this->dataPtr->texCount++;
     Ogre::Technique *technique = this->dataPtr->matSecondPass->getTechnique(0);
     GZ_ASSERT(technique, "GpuLaser material script error: technique not found");
 
