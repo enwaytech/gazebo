@@ -91,12 +91,12 @@ void GpuLaser::Init()
 //////////////////////////////////////////////////
 void GpuLaser::Fini()
 {
-  for (const auto& face : this->dataPtr->cube_map_faces)
+  for (const auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
   {
-    if (!face.second.texture.isNull())
+    if (!cube_face.texture.isNull())
     {
       Ogre::TextureManager::getSingleton().remove(
-          face.second.texture->getName());
+          cube_face.texture->getName());
     }
   }
 
@@ -112,18 +112,19 @@ void GpuLaser::Fini()
 void GpuLaser::CreateLaserTexture(const std::string &_textureName)
 {
   unsigned int cube_face_tex_index = 0;
-  for (auto& face : this->dataPtr->cube_map_faces)
+  for (auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
   {
     std::stringstream texName;
     texName << _textureName << "_cube_face_texture_" << cube_face_tex_index;
-    face.second.texture = Ogre::TextureManager::getSingleton().createManual(
+
+    cube_face.texture = Ogre::TextureManager::getSingleton().createManual(
         texName.str(), "General", Ogre::TEX_TYPE_2D,
         this->ImageWidth(), this->ImageHeight(), 0,
         Ogre::PF_FLOAT32_RGB, Ogre::TU_RENDERTARGET);
 
-    this->Set1stPassTarget(face.second.texture->getBuffer()->getRenderTarget(), face.second); // TODO refactor Set1stPassTarget()
+    this->Set1stPassTarget(cube_face.texture->getBuffer()->getRenderTarget(), cube_face); // TODO refactor Set1stPassTarget()
 
-    face.second.render_target->setAutoUpdated(false);
+    cube_face.render_target->setAutoUpdated(false);
 
     cube_face_tex_index++;
   }
@@ -140,7 +141,7 @@ void GpuLaser::CreateLaserTexture(const std::string &_textureName)
   this->dataPtr->matSecondPass->load();
 
   Ogre::TextureUnitState *texUnit;
-  for (const auto& face : this->dataPtr->cube_map_faces)
+  for (const auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
   {
     unsigned int texIndex = this->dataPtr->texCount++;
     Ogre::Technique *technique = this->dataPtr->matSecondPass->getTechnique(0);
@@ -149,9 +150,9 @@ void GpuLaser::CreateLaserTexture(const std::string &_textureName)
     Ogre::Pass *pass = technique->getPass(0);
     GZ_ASSERT(pass, "GpuLaser material script error: pass not found");
 
-    if (!pass->getTextureUnitState(face.second.texture->getName()))
+    if (!pass->getTextureUnitState(cube_face.texture->getName()))
     {
-      texUnit = pass->createTextureUnitState(face.second.texture->getName(), texIndex);
+      texUnit = pass->createTextureUnitState(cube_face.texture->getName(), texIndex);
 
       this->dataPtr->texIdx.push_back(texIndex);
 
@@ -164,9 +165,9 @@ void GpuLaser::CreateLaserTexture(const std::string &_textureName)
 //////////////////////////////////////////////////
 void GpuLaser::PostRender()
 {
-  for (auto& face : this->dataPtr->cube_map_faces)
+  for (auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
   {
-    face.second.render_target->swapBuffers();
+    cube_face.render_target->swapBuffers();
   }
 
   if (this->newData && this->captureData)
@@ -179,18 +180,18 @@ void GpuLaser::PostRender()
       this->dataPtr->laserBuffer.resize(size);
     }
 
-    for (auto& face : this->dataPtr->cube_map_faces)
+    for (auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
     {
-      const Ogre::HardwarePixelBufferSharedPtr pixelBuffer = face.second.texture->getBuffer();
+      const Ogre::HardwarePixelBufferSharedPtr pixelBuffer = cube_face.texture->getBuffer();
 
-      const unsigned int frameWidth = face.second.viewport->getActualWidth();
-      const unsigned int frameHeight = face.second.viewport->getActualHeight();
+      const unsigned int frameWidth = cube_face.viewport->getActualWidth();
+      const unsigned int frameHeight = cube_face.viewport->getActualHeight();
       const size_t frameSize = frameWidth * frameHeight * 3;
 
-      face.second.depth_img.resize(frameSize);
+      cube_face.depth_img.resize(frameSize);
 
       Ogre::PixelBox dstBox(frameWidth, frameHeight,
-                            1, Ogre::PF_FLOAT32_RGB, face.second.depth_img.data());
+                            1, Ogre::PF_FLOAT32_RGB, cube_face.depth_img.data());
 
       pixelBuffer->blitToMemory(dstBox);
 
@@ -407,15 +408,15 @@ void GpuLaser::RenderImpl()
 
   this->dataPtr->currentMat = this->dataPtr->matFirstPass;
 
-  for (auto& face : this->dataPtr->cube_map_faces)
+  for (auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
   {
-    this->ApplyCameraSetting(face.second.camera_setting);
+    this->ApplyCameraSetting(cube_face.camera_setting);
 
-    this->dataPtr->currentTarget = face.second.render_target;
-    this->UpdateRenderTarget(face.second.render_target, this->dataPtr->matFirstPass, this->camera);
-    face.second.render_target->update(false);
+    this->dataPtr->currentTarget = cube_face.render_target;
+    this->UpdateRenderTarget(cube_face.render_target, this->dataPtr->matFirstPass, this->camera);
+    cube_face.render_target->update(false);
 
-    this->RevertCameraSetting(face.second.camera_setting);
+    this->RevertCameraSetting(cube_face.camera_setting);
   }
 
   sceneMgr->removeRenderObjectListener(this);
