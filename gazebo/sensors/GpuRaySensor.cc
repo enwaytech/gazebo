@@ -85,7 +85,7 @@ void GpuRaySensor::Load(const std::string &_worldName, sdf::ElementPtr _sdf)
 {
   Sensor::Load(_worldName, _sdf);
   // useStrictRate is set in Sensor::Load()
-  if (this->useStrictRate)
+  if (GpuRaySensor::useStrictRate)
   {
     this->connections.push_back(
         event::Events::ConnectPreRenderEnded(
@@ -98,7 +98,7 @@ void GpuRaySensor::Load(const std::string &_worldName)
 {
   Sensor::Load(_worldName);
   // useStrictRate is set in Sensor::Load()
-  if (this->useStrictRate)
+  if (GpuRaySensor::useStrictRate)
   {
     this->connections.push_back(
         event::Events::ConnectPreRenderEnded(
@@ -340,7 +340,7 @@ void GpuRaySensor::Fini()
 void GpuRaySensor::SetActive(bool _value)
 {
   // If this sensor is reactivated
-  if (this->useStrictRate && _value && !this->IsActive())
+  if (GpuRaySensor::useStrictRate && _value && !this->IsActive())
   {
     // the next rendering time must be reset to ensure it is properly
     // computed by GpuRaySensor::NeedsUpdate.
@@ -352,7 +352,7 @@ void GpuRaySensor::SetActive(bool _value)
 //////////////////////////////////////////////////
 bool GpuRaySensor::NeedsUpdate()
 {
-  if (this->useStrictRate)
+  if (GpuRaySensor::useStrictRate)
   {
     double simTime;
     if (this->scene)
@@ -625,7 +625,7 @@ int GpuRaySensor::Fiducial(const unsigned int /*_index*/) const
 //////////////////////////////////////////////////
 void GpuRaySensor::PrerenderEnded()
 {
-  if (this->useStrictRate && this->dataPtr->laserCam && this->IsActive() &&
+  if (GpuRaySensor::useStrictRate && this->dataPtr->laserCam && this->IsActive() &&
       this->NeedsUpdate())
   {
     // compute next rendering time, take care of the case where period is zero.
@@ -645,7 +645,7 @@ void GpuRaySensor::PrerenderEnded()
 void GpuRaySensor::Render()
 {
   IGN_PROFILE("sensors::GpuRaySensor::Render");
-  if (this->useStrictRate)
+  if (GpuRaySensor::useStrictRate)
   {
     if (!this->dataPtr->renderNeeded)
       return;
@@ -769,7 +769,7 @@ rendering::GpuLaserPtr GpuRaySensor::LaserCamera() const
 //////////////////////////////////////////////////
 double GpuRaySensor::NextRequiredTimestamp() const
 {
-  if (this->useStrictRate)
+  if (GpuRaySensor::useStrictRate)
   {
     if (!ignition::math::equal(this->updatePeriod.Double(), 0.0))
       return this->dataPtr->nextRenderingTime;
@@ -786,6 +786,6 @@ double GpuRaySensor::NextRequiredTimestamp() const
 void GpuRaySensor::ResetLastUpdateTime()
 {
   Sensor::ResetLastUpdateTime();
-  if (this->useStrictRate)
+  if (GpuRaySensor::useStrictRate)
     this->dataPtr->nextRenderingTime = std::numeric_limits<double>::quiet_NaN();
 }
