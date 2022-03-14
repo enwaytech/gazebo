@@ -227,8 +227,7 @@ namespace gazebo
       /// \param[in] _updateTex True to update the textures in the material
       private: void UpdateRenderTarget(Ogre::RenderTarget *_target,
                                        Ogre::Material *_material,
-                                       Ogre::Camera *_cam,
-                                       const bool _updateTex = false);
+                                       Ogre::Camera *_cam);
 
       /// \brief Sets first pass target.
       /// \param[in] _target Render target for the first pass.
