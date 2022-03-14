@@ -194,32 +194,6 @@ void GpuLaser::PostRender()
                             1, Ogre::PF_FLOAT32_RGB, cube_face.depth_img.data());
 
       pixelBuffer->blitToMemory(dstBox);
-
-      // debug output of depth image
-//      std::vector<float> raw_img(frameSize);
-//      Ogre::PixelBox imgBox(frameWidth, frameHeight,
-//                            1, Ogre::PF_FLOAT32_RGB, raw_img.data());
-//      pixelBuffer->blitToMemory(imgBox);
-//      Ogre::Image output_img;
-//      output_img = output_img.loadDynamicImage(static_cast<unsigned char*>(imgBox.data), imgBox.getWidth(), imgBox.getHeight(), Ogre::PF_FLOAT32_RGB);
-//
-//      for (unsigned int azimuth_i = 0; azimuth_i < this->dataPtr->w2nd; azimuth_i++)
-//      {
-//        for (unsigned int elevation_i = 0; elevation_i < this->dataPtr->h2nd; elevation_i++)
-//        {
-//          const GpuLaserCubeMappingPoint& point = mapping[azimuth_i][elevation_i];
-//
-//          if (point.first == face.first)
-//          {
-//            const auto x = static_cast<unsigned int>(point.second.X() * (this->ImageWidth() - 1));
-//            const auto y = static_cast<unsigned int>(point.second.Y() * (this->ImageHeight() - 1));
-//
-//            output_img.setColourAt(Ogre::ColourValue(0., 1., 0.), x, y, 0);
-//          }
-//        }
-//      }
-//      output_img.save("Gpu_cam_img_" + face.second.name + ".exr");
-      // debug output of depth image
     }
 
     // read ranges
