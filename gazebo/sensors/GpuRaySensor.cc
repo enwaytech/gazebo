@@ -317,7 +317,7 @@ void GpuRaySensor::Init()
     this->dataPtr->laserCam->SetRangeCount(
         this->RangeCount(),
         this->VerticalRangeCount());
-    this->dataPtr->laserCam->SetClipDist(this->RangeMin(), this->RangeMax());
+    this->dataPtr->laserCam->SetClipDist(static_cast<float>(this->RangeMin()), static_cast<float>(this->RangeMax()));
     this->dataPtr->laserCam->CreateLaserTexture(
         this->ScopedName() + "_RttTex_Laser");
     this->dataPtr->laserCam->CreateRenderTexture(
@@ -533,7 +533,7 @@ int GpuRaySensor::RayCount() const
 //////////////////////////////////////////////////
 int GpuRaySensor::RangeCount() const
 {
-  return this->RayCount() * this->dataPtr->horzElem->Get<double>("resolution");
+  return static_cast<int>(this->RayCount() * this->dataPtr->horzElem->Get<double>("resolution"));
 }
 
 //////////////////////////////////////////////////
@@ -550,7 +550,7 @@ int GpuRaySensor::VerticalRangeCount() const
 {
   if (this->dataPtr->scanElem->HasElement("vertical"))
   {
-    int rows =  (this->VerticalRayCount() *
+    const int rows = static_cast<int>(this->VerticalRayCount() *
           this->dataPtr->vertElem->Get<double>("resolution"));
     if (rows > 1)
       return rows;
@@ -720,8 +720,8 @@ bool GpuRaySensor::UpdateImpl(const bool /*_force*/)
   scan->set_range_min(this->dataPtr->rangeMin);
   scan->set_range_max(this->dataPtr->rangeMax);
 
-  const int numRays = this->dataPtr->vertRangeCount *
-    this->dataPtr->horzRangeCount;
+  const int numRays = static_cast<int>(this->dataPtr->vertRangeCount *
+    this->dataPtr->horzRangeCount);
   if (scan->ranges_size() != numRays)
   {
     // gzdbg << "Size mismatch; allocating memory\n";

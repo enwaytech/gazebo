@@ -280,7 +280,7 @@ void GpuLaser::UpdateRenderTarget(Ogre::RenderTarget *_target,
   // OgreSceneManager::_render function automatically sets farClip to 0.
   // Which normally equates to infinite distance. We don't want this. So
   // we have to set the distance every time.
-  _cam->setFarClipDistance(this->FarClip());
+  _cam->setFarClipDistance(static_cast<float>(this->FarClip()));
 
   Ogre::AutoParamDataSource autoParamDataSource;
 
@@ -467,13 +467,13 @@ void GpuLaser::Set1stPassTarget(Ogre::RenderTarget *_target,
     cube_face.viewport->setOverlaysEnabled(false);
     cube_face.viewport->setShadowsEnabled(false);
     cube_face.viewport->setSkiesEnabled(false);
-    cube_face.viewport->setBackgroundColour(Ogre::ColourValue(this->farClip, 0.0, 1.0));
+    cube_face.viewport->setBackgroundColour(Ogre::ColourValue(static_cast<float>(this->farClip), 0.0, 1.0));
     cube_face.viewport->setVisibilityMask(
         GZ_VISIBILITY_ALL & ~(GZ_VISIBILITY_GUI | GZ_VISIBILITY_SELECTABLE));
   }
 
-  this->camera->setAspectRatio(this->RayCountRatio());
-  this->camera->setFOVy(Ogre::Radian(this->CosVertFOV()));
+  this->camera->setAspectRatio(static_cast<float>(this->RayCountRatio()));
+  this->camera->setFOVy(Ogre::Radian(static_cast<float>(this->CosVertFOV())));
 }
 
 /////////////////////////////////////////////////
@@ -615,15 +615,15 @@ event::ConnectionPtr GpuLaser::ConnectNewLaserFrame(
 //////////////////////////////////////////////////
 void GpuLaser::ApplyCameraSetting(const GpuLaserCameraSetting &setting)
 {
-  this->sceneNode->roll(Ogre::Radian(setting.azimuthOffset));
-  this->sceneNode->yaw(Ogre::Radian(setting.elevationOffset));
+  this->sceneNode->roll(Ogre::Radian(static_cast<float>(setting.azimuthOffset)));
+  this->sceneNode->yaw(Ogre::Radian(static_cast<float>(setting.elevationOffset)));
 }
 
 //////////////////////////////////////////////////
 void GpuLaser::RevertCameraSetting(const GpuLaserCameraSetting &setting)
 {
-  this->sceneNode->yaw(Ogre::Radian(-setting.elevationOffset));
-  this->sceneNode->roll(Ogre::Radian(-setting.azimuthOffset));
+  this->sceneNode->yaw(Ogre::Radian(static_cast<float>(-setting.elevationOffset)));
+  this->sceneNode->roll(Ogre::Radian(static_cast<float>(-setting.azimuthOffset)));
 }
 
 //////////////////////////////////////////////////
