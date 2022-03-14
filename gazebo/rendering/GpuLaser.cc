@@ -264,8 +264,7 @@ void GpuLaser::PostRender()
 
 /////////////////////////////////////////////////
 void GpuLaser::UpdateRenderTarget(Ogre::RenderTarget *_target,
-                   Ogre::Material *_material, Ogre::Camera *_cam,
-                   const bool _updateTex)
+                   Ogre::Material *_material, Ogre::Camera *_cam)
 {
   Ogre::RenderSystem *renderSys;
   Ogre::Viewport *vp = nullptr;
@@ -303,20 +302,6 @@ void GpuLaser::UpdateRenderTarget(Ogre::RenderTarget *_target,
 #else
   pass->_updateAutoParams(&autoParamDataSource, 1);
 #endif
-
-  if (_updateTex)
-  {
-    pass->getFragmentProgramParameters()->setNamedConstant("tex1",
-      this->dataPtr->texIdx[0]);
-    if (this->dataPtr->texIdx.size() > 1)
-    {
-      pass->getFragmentProgramParameters()->setNamedConstant("tex2",
-        this->dataPtr->texIdx[1]);
-      if (this->dataPtr->texIdx.size() > 2)
-        pass->getFragmentProgramParameters()->setNamedConstant("tex3",
-          this->dataPtr->texIdx[2]);
-    }
-  }
 
   // NOTE: We MUST bind parameters AFTER updating the autos
   if (pass->hasVertexProgram())
