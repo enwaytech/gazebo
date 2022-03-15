@@ -68,20 +68,17 @@ namespace gazebo
 
       public: std::map<GpuLaserCubeFaceId, GpuLaserCubeFace> cube_map_faces;
 
-      /// \brief Pointer to Ogre material for the first rendering pass.
-      public: Ogre::Material *matFirstPass;
+      /// \brief Pointer to Ogre material for the rendering pass.
+      public: Ogre::Material *mat;
 
       /// \brief Temporary pointer to the current render target.
       public: Ogre::RenderTarget *currentTarget;
 
-      /// \brief Temporary pointer to the current material.
-      public: Ogre::Material *currentMat;
+      /// \brief Number of horizontal ranges.
+      public: unsigned int horizontal_range_count;
 
-      /// \brief Image width of second pass.
-      public: unsigned int w2nd;
-
-      /// \brief Image height of second pass.
-      public: unsigned int h2nd;
+      /// \brief Number of vertical ranges.
+      public: unsigned int vertical_range_count;
     };
   }
 }

@@ -229,11 +229,9 @@ namespace gazebo
                                        Ogre::Material *_material,
                                        Ogre::Camera *_cam);
 
-      /// \brief Sets first pass target.
-      /// \param[in] _target Render target for the first pass.
-      /// \param[in] _index Index of the texture.
-      private: virtual void Set1stPassTarget(Ogre::RenderTarget *_target,
-                                             GpuLaserCubeFace& cube_face);
+      /// \brief Setup the render target for the specified cube face.
+      /// \param[in] cube_face The cube face.
+      private: virtual void SetUpRenderTarget(GpuLaserCubeFace& cube_face);
 
       private: void ApplyCameraSetting(const GpuLaserCameraSetting &setting);
       private: void RevertCameraSetting(const GpuLaserCameraSetting &setting);
