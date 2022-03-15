@@ -12,7 +12,6 @@
 
 #include <ignition/math/Vector2.hh>
 
-#include "gazebo/rendering/GpuLaserCameraSetting.hh"
 #include "gazebo/rendering/ogre_gazebo.h"
 
 namespace gazebo
@@ -37,14 +36,18 @@ namespace gazebo
     /// Second element is x/y coordinate of ray intersection with face (in range [0,1]x[0,1])
     typedef std::pair<GpuLaserCubeFaceId, ignition::math::Vector2d> GpuLaserCubeMappingPoint;
 
+    struct GpuLaserCameraSetting
+    {
+      double azimuthOffset;
+      double elevationOffset;
+    };
+
     struct GpuLaserCubeFace
     {
       std::string name;
-      std::vector<float> depth_img;
+      std::vector<float> depthImg;
       Ogre::TexturePtr texture;
-      Ogre::RenderTarget *render_target; // TODO use smart pointer
-      Ogre::Viewport *viewport; // TODO use smart pointer
-      GpuLaserCameraSetting camera_setting;
+      GpuLaserCameraSetting cameraSetting;
     };
 
   }

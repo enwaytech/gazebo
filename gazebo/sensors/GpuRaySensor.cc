@@ -35,7 +35,6 @@
 #include "gazebo/rendering/RenderingIface.hh"
 #include "gazebo/rendering/RenderEngine.hh"
 #include "gazebo/rendering/GpuLaser.hh"
-#include "gazebo/rendering/GpuLaserCameraSetting.hh"
 
 #include "gazebo/sensors/Noise.hh"
 #include "gazebo/sensors/SensorFactory.hh"

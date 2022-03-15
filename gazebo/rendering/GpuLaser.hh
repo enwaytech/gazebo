@@ -199,35 +199,25 @@ namespace gazebo
       /// \param[in] _rayCountRatio ray count ratio (equivalent to aspect ratio)
       public: void SetRayCountRatio(const double _rayCountRatio);
 
+      /// \brief Initializes the mapping of ray angles to cube map coordinates.
       public: void InitMapping(const std::set<double> &_azimuth_values, const std::set<double> &_elevation_values);
 
       /// \brief Finds the corresponding cube map face and the coordinates of intersection of the view ray
       /// \param[in] azimuth Horizontal angle relative to minimum angle
       /// \param[in] elevation Vertical angle
       /// \returns Mapping for the given ray
-      private: static GpuLaserCubeMappingPoint FindCubeFaceMapping(const double _azimuth, const double _elevation);
+      public: static GpuLaserCubeMappingPoint FindCubeFaceMapping(const double _azimuth, const double _elevation);
 
-      private: static GpuLaserCubeFaceId FindCubeFace(const double _azimuth, const double _elevation);
+      public: static GpuLaserCubeFaceId FindCubeFace(const double _azimuth, const double _elevation);
 
-      private: static ignition::math::Vector3d ViewingRay(const double _azimuth, const double _elevation);
-
-      /// \brief Stores the mapping of all rays
-      /// First dimension is azimuth, second dimension is elevation
-      private: std::vector<std::vector<GpuLaserCubeMappingPoint>> mapping;
-
-      private: std::map<GpuLaserCubeFaceId, std::vector<float>> frames;
+      public: static ignition::math::Vector3d ViewingRay(const double _azimuth, const double _elevation);
 
       // Documentation inherited.
       private: virtual void RenderImpl();
 
       /// \brief Update a render target.
-      /// \param[in, out] _target Render target to update (render).
-      /// \param[in, out] _material Material used during render.
-      /// \param[in] _cam Camera to render from.
-      /// \param[in] _updateTex True to update the textures in the material
-      private: void UpdateRenderTarget(Ogre::RenderTarget *_target,
-                                       Ogre::Material *_material,
-                                       Ogre::Camera *_cam);
+      /// \param[in, out] _cube_face Cube face for which to update the render target.
+      private: void UpdateRenderTarget(GpuLaserCubeFace &_cube_face);
 
       /// \brief Setup the render target for the specified cube face.
       /// \param[in] cube_face The cube face.

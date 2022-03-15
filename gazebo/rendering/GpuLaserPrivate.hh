@@ -68,8 +68,12 @@ namespace gazebo
 
       public: std::map<GpuLaserCubeFaceId, GpuLaserCubeFace> cube_map_faces;
 
+      /// \brief Stores the mapping of all rays
+      /// First dimension is azimuth, second dimension is elevation.
+      public: std::vector<std::vector<GpuLaserCubeMappingPoint>> mapping;
+
       /// \brief Pointer to Ogre material for the rendering pass.
-      public: Ogre::Material *mat;
+      public: Ogre::Material *material;
 
       /// \brief Temporary pointer to the current render target.
       public: Ogre::RenderTarget *currentTarget;
