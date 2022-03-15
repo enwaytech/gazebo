@@ -36,7 +36,7 @@ namespace gazebo
     /// Second element is x/y coordinate of ray intersection with face (in range [0,1]x[0,1])
     typedef std::pair<GpuLaserCubeFaceId, ignition::math::Vector2d> GpuLaserCubeMappingPoint;
 
-    struct GpuLaserCameraSetting
+    struct GpuLaserCameraOrientationOffset
     {
       double azimuthOffset;
       double elevationOffset;
@@ -44,10 +44,9 @@ namespace gazebo
 
     struct GpuLaserCubeFace
     {
-      std::string name;
-      std::vector<float> depthImg;
+      GpuLaserCameraOrientationOffset cameraSetting;
       Ogre::TexturePtr texture;
-      GpuLaserCameraSetting cameraSetting;
+      std::vector<float> depthImg;
     };
 
   }
