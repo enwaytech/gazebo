@@ -49,7 +49,7 @@ GpuLaser::GpuLaser(const std::string &_namePrefix, ScenePtr _scene,
   dataPtr(new GpuLaserPrivate)
 {
   this->dataPtr->laserScan = nullptr;
-  this->dataPtr->mat = nullptr;
+  this->dataPtr->material = nullptr;
   this->dataPtr->horizontal_range_count = 0;
   this->dataPtr->vertical_range_count = 0;
 }
@@ -115,13 +115,13 @@ void GpuLaser::CreateLaserTexture(const std::string &_textureName)
     cube_face_tex_index++;
   }
 
-  this->dataPtr->mat =
+  this->dataPtr->material =
       static_cast<Ogre::Material *>(Ogre::MaterialManager::getSingleton()
                                         .getByName("Gazebo/LaserScan")
                                         .get());
 
-  this->dataPtr->mat->load();
-  this->dataPtr->mat->setCullingMode(Ogre::CULL_NONE);
+  this->dataPtr->material->load();
+  this->dataPtr->material->setCullingMode(Ogre::CULL_NONE);
 }
 
 //////////////////////////////////////////////////
@@ -129,7 +129,7 @@ void GpuLaser::PostRender()
 {
   for (auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
   {
-    cube_face.render_target->swapBuffers();
+    cube_face.texture->getBuffer()->getRenderTarget()->swapBuffers();
   }
 
   if (this->newData && this->captureData)
@@ -146,30 +146,31 @@ void GpuLaser::PostRender()
     {
       const Ogre::HardwarePixelBufferSharedPtr pixelBuffer = cube_face.texture->getBuffer();
 
-      const unsigned int frameWidth = cube_face.viewport->getActualWidth();
-      const unsigned int frameHeight = cube_face.viewport->getActualHeight();
+      const Ogre::Viewport *viewport = cube_face.texture->getBuffer()->getRenderTarget()->getViewport(0);
+      const unsigned int frameWidth = viewport->getActualWidth();
+      const unsigned int frameHeight = viewport->getActualHeight();
       const size_t frameSize = frameWidth * frameHeight * 3;
 
-      cube_face.depth_img.resize(frameSize);
+      cube_face.depthImg.resize(frameSize);
 
       Ogre::PixelBox dstBox(frameWidth, frameHeight,
-                            1, Ogre::PF_FLOAT32_RGB, cube_face.depth_img.data());
+                            1, Ogre::PF_FLOAT32_RGB, cube_face.depthImg.data());
 
       pixelBuffer->blitToMemory(dstBox);
     }
 
     // read ranges
-    GZ_ASSERT(this->dataPtr->horizontal_range_count == mapping.size(), "cube face mapping size doesn't match number of horizontal rays");
+    GZ_ASSERT(this->dataPtr->horizontal_range_count == this->dataPtr->mapping.size(), "cube face mapping size doesn't match number of horizontal rays");
 
     for (unsigned int azimuth_i = 0; azimuth_i < this->dataPtr->horizontal_range_count; azimuth_i++)
     {
-      GZ_ASSERT(this->dataPtr->vertical_range_count == mapping[azimuth_i].size(), "cube face mapping size doesn't match number of vertical rays");
+      GZ_ASSERT(this->dataPtr->vertical_range_count == this->dataPtr->mapping[azimuth_i].size(), "cube face mapping size doesn't match number of vertical rays");
 
       for (unsigned int elevation_i = 0; elevation_i < this->dataPtr->vertical_range_count; elevation_i++)
       {
         const unsigned int index = (elevation_i * this->dataPtr->horizontal_range_count + azimuth_i) * 3;
 
-        const GpuLaserCubeMappingPoint& point = mapping[azimuth_i][elevation_i];
+        const GpuLaserCubeMappingPoint& point = this->dataPtr->mapping[azimuth_i][elevation_i];
 
         // pixel coordinates
         const auto x = static_cast<unsigned int>(point.second.X() * (this->ImageWidth() - 1));
@@ -177,9 +178,9 @@ void GpuLaser::PostRender()
 
         const unsigned int frame_index = (y * this->ImageWidth() + x) * 3;
 
-        this->dataPtr->laserBuffer.at(index) = this->dataPtr->cube_map_faces.at(point.first).depth_img.at(frame_index);
-        this->dataPtr->laserBuffer.at(index + 1) = this->dataPtr->cube_map_faces.at(point.first).depth_img.at(frame_index + 1);
-        this->dataPtr->laserBuffer.at(index + 2) = this->dataPtr->cube_map_faces.at(point.first).depth_img.at(frame_index + 2);
+        this->dataPtr->laserBuffer.at(index) = this->dataPtr->cube_map_faces.at(point.first).depthImg.at(frame_index);
+        this->dataPtr->laserBuffer.at(index + 1) = this->dataPtr->cube_map_faces.at(point.first).depthImg.at(frame_index + 1);
+        this->dataPtr->laserBuffer.at(index + 2) = this->dataPtr->cube_map_faces.at(point.first).depthImg.at(frame_index + 2);
       }
     }
 
@@ -199,36 +200,35 @@ void GpuLaser::PostRender()
 }
 
 /////////////////////////////////////////////////
-void GpuLaser::UpdateRenderTarget(Ogre::RenderTarget *_target,
-                   Ogre::Material *_material, Ogre::Camera *_cam)
+void GpuLaser::UpdateRenderTarget(GpuLaserCubeFace &_cube_face)
 {
-  Ogre::RenderSystem *renderSys;
-  Ogre::Viewport *vp = nullptr;
+  Ogre::RenderTarget *renderTarget = _cube_face.texture->getBuffer()->getRenderTarget();
   Ogre::SceneManager *sceneMgr = this->scene->OgreSceneManager();
-  Ogre::Pass *pass;
+  Ogre::RenderSystem *renderSys = sceneMgr->getDestinationRenderSystem();
 
-  renderSys = this->scene->OgreSceneManager()->getDestinationRenderSystem();
+  this->dataPtr->currentTarget = renderTarget;
+
   // Get pointer to the material pass
-  pass = _material->getBestTechnique()->getPass(0);
+  Ogre::Pass *pass = this->dataPtr->material->getBestTechnique()->getPass(0);
 
   // Render the depth texture
   // OgreSceneManager::_render function automatically sets farClip to 0.
   // Which normally equates to infinite distance. We don't want this. So
   // we have to set the distance every time.
-  _cam->setFarClipDistance(static_cast<float>(this->FarClip()));
+  this->camera->setFarClipDistance(static_cast<float>(this->FarClip()));
 
   Ogre::AutoParamDataSource autoParamDataSource;
 
-  vp = _target->getViewport(0);
+  Ogre::Viewport *vp = renderTarget->getViewport(0);
 
   // Need this line to render the ground plane. No idea why it's necessary.
   renderSys->_setViewport(vp);
   sceneMgr->_setPass(pass, true, false);
   autoParamDataSource.setCurrentPass(pass);
   autoParamDataSource.setCurrentViewport(vp);
-  autoParamDataSource.setCurrentRenderTarget(_target);
+  autoParamDataSource.setCurrentRenderTarget(renderTarget);
   autoParamDataSource.setCurrentSceneManager(sceneMgr);
-  autoParamDataSource.setCurrentCamera(_cam, true);
+  autoParamDataSource.setCurrentCamera(this->camera, true);
 
   renderSys->setLightingEnabled(false);
   renderSys->_setFog(Ogre::FOG_NONE);
@@ -267,6 +267,8 @@ void GpuLaser::UpdateRenderTarget(Ogre::RenderTarget *_target,
       pass->getFragmentProgramParameters(), 1);
 #endif
   }
+
+  renderTarget->update(false);
 }
 
 /////////////////////////////////////////////////
@@ -284,7 +286,7 @@ void GpuLaser::notifyRenderSingleObject(Ogre::Renderable *_rend,
     _rend->setCustomParameter(1, Ogre::Vector4(0, 0, 0, 0));
   }
 
-  Ogre::Pass *pass = this->dataPtr->mat->getBestTechnique()->getPass(0);
+  Ogre::Pass *pass = this->dataPtr->material->getBestTechnique()->getPass(0);
   Ogre::RenderSystem *renderSys =
                   this->scene->OgreSceneManager()->getDestinationRenderSystem();
 
@@ -329,13 +331,9 @@ void GpuLaser::RenderImpl()
 
   for (auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
   {
-    this->ApplyCameraSetting(cube_face.camera_setting);
-
-    this->dataPtr->currentTarget = cube_face.render_target;
-    this->UpdateRenderTarget(cube_face.render_target, this->dataPtr->mat, this->camera);
-    cube_face.render_target->update(false);
-
-    this->RevertCameraSetting(cube_face.camera_setting);
+    this->ApplyCameraSetting(cube_face.cameraSetting);
+    this->UpdateRenderTarget(cube_face);
+    this->RevertCameraSetting(cube_face.cameraSetting);
   }
 
   sceneMgr->removeRenderObjectListener(this);
@@ -374,26 +372,25 @@ GpuLaser::DataIter GpuLaser::LaserDataEnd() const
 //////////////////////////////////////////////////
 void GpuLaser::SetUpRenderTarget(GpuLaserCubeFace &_cube_face)
 {
-  _cube_face.render_target = _cube_face.texture->getBuffer()->getRenderTarget();
+  Ogre::RenderTarget *renderTarget = _cube_face.texture->getBuffer()->getRenderTarget();
 
-  if (_cube_face.render_target)
+  if (renderTarget)
   {
     // Setup the viewport to use the texture
-    _cube_face.viewport = _cube_face.render_target->addViewport(this->camera);
-
-    _cube_face.viewport->setClearEveryFrame(true);
-    _cube_face.viewport->setOverlaysEnabled(false);
-    _cube_face.viewport->setShadowsEnabled(false);
-    _cube_face.viewport->setSkiesEnabled(false);
-    _cube_face.viewport->setBackgroundColour(Ogre::ColourValue(static_cast<float>(this->farClip), 0.0, 1.0));
-    _cube_face.viewport->setVisibilityMask(
+    Ogre::Viewport *viewport = renderTarget->addViewport(this->camera);
+    viewport->setClearEveryFrame(true);
+    viewport->setOverlaysEnabled(false);
+    viewport->setShadowsEnabled(false);
+    viewport->setSkiesEnabled(false);
+    viewport->setBackgroundColour(Ogre::ColourValue(static_cast<float>(this->farClip), 0.0, 1.0));
+    viewport->setVisibilityMask(
         GZ_VISIBILITY_ALL & ~(GZ_VISIBILITY_GUI | GZ_VISIBILITY_SELECTABLE));
   }
 
   this->camera->setAspectRatio(static_cast<float>(this->RayCountRatio()));
   this->camera->setFOVy(Ogre::Radian(static_cast<float>(this->CosVertFOV())));
 
-  _cube_face.render_target->setAutoUpdated(false);
+  renderTarget->setAutoUpdated(false);
 }
 
 /////////////////////////////////////////////////
@@ -549,8 +546,8 @@ void GpuLaser::RevertCameraSetting(const GpuLaserCameraSetting &_setting)
 //////////////////////////////////////////////////
 void GpuLaser::InitMapping(const std::set<double> &_azimuth_values, const std::set<double> &_elevation_values)
 {
-  mapping.clear();
-  mapping.reserve(_azimuth_values.size());
+  this->dataPtr->mapping.clear();
+  this->dataPtr->mapping.reserve(_azimuth_values.size());
 
   if (_azimuth_values.empty())
   {
@@ -562,39 +559,31 @@ void GpuLaser::InitMapping(const std::set<double> &_azimuth_values, const std::s
 
   this->dataPtr->cube_map_faces.insert(
       std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_FRONT_FACE, {
-          "front", {}, {}, {}, {},
-          {front_face_azimuth, 0.}}));
+          "front", {}, {}, {front_face_azimuth, 0.}}));
   this->dataPtr->cube_map_faces.insert(
       std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_LEFT_FACE, {
-          "left", {}, {}, {}, {},
-          {front_face_azimuth + M_PI_2, 0.0}}));
+        "left", {}, {}, {front_face_azimuth + M_PI_2, 0.0}}));
   this->dataPtr->cube_map_faces.insert(
       std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_REAR_FACE, {
-          "rear", {}, {}, {}, {},
-          {front_face_azimuth + M_PI, 0.0}}));
+        "rear", {}, {}, {front_face_azimuth + M_PI, 0.0}}));
   this->dataPtr->cube_map_faces.insert(
       std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_RIGHT_FACE, {
-          "right", {}, {}, {}, {},
-          {front_face_azimuth + M_PI + M_PI_2, 0.0}}));
+        "right", {}, {}, {front_face_azimuth + M_PI + M_PI_2, 0.0}}));
   this->dataPtr->cube_map_faces.insert(
       std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_TOP_FACE, {
-          "top", {}, {}, {}, {},
-          {front_face_azimuth, -M_PI_2}}));
+        "top", {}, {}, {front_face_azimuth, -M_PI_2}}));
   this->dataPtr->cube_map_faces.insert(
       std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, {
-          "bottom", {}, {}, {}, {},
-          {front_face_azimuth, M_PI_2}}));
+        "bottom", {}, {}, {front_face_azimuth, M_PI_2}}));
 
   for (const double azimuth : _azimuth_values)
   {
-
-
-    mapping.emplace_back();
-    mapping.back().reserve(_elevation_values.size());
+    this->dataPtr->mapping.emplace_back();
+    this->dataPtr->mapping.back().reserve(_elevation_values.size());
 
     for (const double elevation : _elevation_values)
     {
-      mapping.back().push_back(FindCubeFaceMapping(azimuth - min_azimuth, elevation));
+      this->dataPtr->mapping.back().push_back(FindCubeFaceMapping(azimuth - min_azimuth, elevation));
     }
   }
 }
