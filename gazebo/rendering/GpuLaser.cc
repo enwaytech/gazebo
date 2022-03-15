@@ -17,11 +17,11 @@
 
 #include <algorithm>
 #include <sstream>
+#include <utility>
 
 #include <ignition/common/Profiler.hh>
 #include <ignition/math/Helpers.hh>
 #include <ignition/math/Vector3.hh>
-#include <utility>
 
 #ifndef _WIN32
   #include <dirent.h>
@@ -32,10 +32,7 @@
 #include "gazebo/rendering/ogre_gazebo.h"
 
 #include "gazebo/common/Assert.hh"
-#include "gazebo/common/Events.hh"
 #include "gazebo/common/Console.hh"
-#include "gazebo/common/Exception.hh"
-#include "gazebo/common/Mesh.hh"
 
 #include "gazebo/rendering/Visual.hh"
 #include "gazebo/rendering/Scene.hh"
