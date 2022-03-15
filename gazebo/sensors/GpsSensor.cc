@@ -41,11 +41,6 @@ GpsSensor::GpsSensor()
 }
 
 /////////////////////////////////////////////////
-GpsSensor::~GpsSensor()
-{
-}
-
-/////////////////////////////////////////////////
 void GpsSensor::Load(const std::string &_worldName, sdf::ElementPtr _sdf)
 {
   Sensor::Load(_worldName, _sdf);
