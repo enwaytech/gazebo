@@ -45,7 +45,7 @@ namespace gazebo
       public: GpsSensor();
 
       /// \brief Destructor.
-      public: virtual ~GpsSensor();
+      public: virtual ~GpsSensor() = default;
 
       // Documentation inherited
       public: virtual void Load(const std::string & _worldName,
