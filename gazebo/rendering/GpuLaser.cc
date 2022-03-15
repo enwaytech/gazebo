@@ -170,17 +170,17 @@ void GpuLaser::PostRender()
       {
         const unsigned int index = (elevation_i * this->dataPtr->horizontal_range_count + azimuth_i) * 3;
 
-        const GpuLaserCubeMappingPoint& point = this->dataPtr->mapping[azimuth_i][elevation_i];
+        const auto& [cube_face_id, face_coordinates] = this->dataPtr->mapping[azimuth_i][elevation_i];
 
         // pixel coordinates
-        const auto x = static_cast<unsigned int>(point.second.X() * (this->ImageWidth() - 1));
-        const auto y = static_cast<unsigned int>(point.second.Y() * (this->ImageHeight() - 1));
+        const auto x = static_cast<unsigned int>(face_coordinates.X() * (this->ImageWidth() - 1));
+        const auto y = static_cast<unsigned int>(face_coordinates.Y() * (this->ImageHeight() - 1));
 
         const unsigned int frame_index = (y * this->ImageWidth() + x) * 3;
 
-        this->dataPtr->laserBuffer.at(index) = this->dataPtr->cube_map_faces.at(point.first).depthImg.at(frame_index);
-        this->dataPtr->laserBuffer.at(index + 1) = this->dataPtr->cube_map_faces.at(point.first).depthImg.at(frame_index + 1);
-        this->dataPtr->laserBuffer.at(index + 2) = this->dataPtr->cube_map_faces.at(point.first).depthImg.at(frame_index + 2);
+        this->dataPtr->laserBuffer.at(index) = this->dataPtr->cube_map_faces.at(cube_face_id).depthImg.at(frame_index);
+        this->dataPtr->laserBuffer.at(index + 1) = this->dataPtr->cube_map_faces.at(cube_face_id).depthImg.at(frame_index + 1);
+        this->dataPtr->laserBuffer.at(index + 2) = this->dataPtr->cube_map_faces.at(cube_face_id).depthImg.at(frame_index + 2);
       }
     }
 
