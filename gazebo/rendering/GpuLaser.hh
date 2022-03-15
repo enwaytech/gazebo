@@ -199,17 +199,17 @@ namespace gazebo
       /// \param[in] _rayCountRatio ray count ratio (equivalent to aspect ratio)
       public: void SetRayCountRatio(const double _rayCountRatio);
 
-      public: void InitMapping(const std::set<double>& azimuth_values, const std::set<double>& elevation_values);
+      public: void InitMapping(const std::set<double> &_azimuth_values, const std::set<double> &_elevation_values);
 
       /// \brief Finds the corresponding cube map face and the coordinates of intersection of the view ray
       /// \param[in] azimuth Horizontal angle relative to minimum angle
       /// \param[in] elevation Vertical angle
       /// \returns Mapping for the given ray
-      public: static GpuLaserCubeMappingPoint FindCubeFaceMapping(const double azimuth, const double elevation);
+      private: static GpuLaserCubeMappingPoint FindCubeFaceMapping(const double _azimuth, const double _elevation);
 
-      public: static GpuLaserCubeFaceId FindCubeFace(const double azimuth, const double elevation);
+      private: static GpuLaserCubeFaceId FindCubeFace(const double _azimuth, const double _elevation);
 
-      public: static ignition::math::Vector3d ViewingRay(const double azimuth, const double elevation);
+      private: static ignition::math::Vector3d ViewingRay(const double _azimuth, const double _elevation);
 
       /// \brief Stores the mapping of all rays
       /// First dimension is azimuth, second dimension is elevation
@@ -231,10 +231,10 @@ namespace gazebo
 
       /// \brief Setup the render target for the specified cube face.
       /// \param[in] cube_face The cube face.
-      private: virtual void SetUpRenderTarget(GpuLaserCubeFace& cube_face);
+      private: virtual void SetUpRenderTarget(GpuLaserCubeFace &_cube_face);
 
-      private: void ApplyCameraSetting(const GpuLaserCameraSetting &setting);
-      private: void RevertCameraSetting(const GpuLaserCameraSetting &setting);
+      private: void ApplyCameraSetting(const GpuLaserCameraSetting &_setting);
+      private: void RevertCameraSetting(const GpuLaserCameraSetting &_setting);
 
       /// \brief Horizontal half angle.
       protected: double horzHalfAngle{};

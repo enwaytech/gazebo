@@ -48,11 +48,11 @@ namespace gazebo
       public: virtual ~GpsSensor() = default;
 
       // Documentation inherited
-      public: virtual void Load(const std::string & _worldName,
+      public: virtual void Load(const std::string &_worldName,
                                 sdf::ElementPtr _sdf);
 
       // Documentation inherited
-      public: virtual void Load(const std::string & _worldName);
+      public: virtual void Load(const std::string &_worldName);
 
       // Documentation inherited
       public: virtual void Init();
