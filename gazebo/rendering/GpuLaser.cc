@@ -178,9 +178,22 @@ void GpuLaser::PostRender()
 
         const unsigned int frame_index = (y * this->ImageWidth() + x) * 3;
 
-        this->dataPtr->laserBuffer.at(index) = this->dataPtr->cube_map_faces.at(cube_face_id).depthImg.at(frame_index);
-        this->dataPtr->laserBuffer.at(index + 1) = this->dataPtr->cube_map_faces.at(cube_face_id).depthImg.at(frame_index + 1);
-        this->dataPtr->laserBuffer.at(index + 2) = this->dataPtr->cube_map_faces.at(cube_face_id).depthImg.at(frame_index + 2);
+        try
+        {
+          this->dataPtr->laserBuffer.at(index) =
+              this->dataPtr->cube_map_faces.at(cube_face_id)
+                  .depthImg.at(frame_index);
+          this->dataPtr->laserBuffer.at(index + 1) =
+              this->dataPtr->cube_map_faces.at(cube_face_id)
+                  .depthImg.at(frame_index + 1);
+          this->dataPtr->laserBuffer.at(index + 2) =
+              this->dataPtr->cube_map_faces.at(cube_face_id)
+                  .depthImg.at(frame_index + 2);
+        }
+        catch(const std::out_of_range& /*unused*/)
+        {
+          gzthrow("Required cube face has not been initialized! This is a fatal bug!");
+        }
       }
     }
 
@@ -530,14 +543,14 @@ event::ConnectionPtr GpuLaser::ConnectNewLaserFrame(
 }
 
 //////////////////////////////////////////////////
-void GpuLaser::ApplyCameraSetting(const GpuLaserCameraSetting &_setting)
+void GpuLaser::ApplyCameraSetting(const GpuLaserCameraOrientationOffset &_setting)
 {
   this->sceneNode->roll(Ogre::Radian(static_cast<float>(_setting.azimuthOffset)));
   this->sceneNode->yaw(Ogre::Radian(static_cast<float>(_setting.elevationOffset)));
 }
 
 //////////////////////////////////////////////////
-void GpuLaser::RevertCameraSetting(const GpuLaserCameraSetting &_setting)
+void GpuLaser::RevertCameraSetting(const GpuLaserCameraOrientationOffset &_setting)
 {
   this->sceneNode->yaw(Ogre::Radian(static_cast<float>(-_setting.elevationOffset)));
   this->sceneNode->roll(Ogre::Radian(static_cast<float>(-_setting.azimuthOffset)));
@@ -557,24 +570,15 @@ void GpuLaser::InitMapping(const std::set<double> &_azimuth_values, const std::s
   const double min_azimuth = *_azimuth_values.begin();
   const double front_face_azimuth = min_azimuth + M_PI_4;
 
-  this->dataPtr->cube_map_faces.insert(
-      std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_FRONT_FACE, {
-          "front", {}, {}, {front_face_azimuth, 0.}}));
-  this->dataPtr->cube_map_faces.insert(
-      std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_LEFT_FACE, {
-        "left", {}, {}, {front_face_azimuth + M_PI_2, 0.0}}));
-  this->dataPtr->cube_map_faces.insert(
-      std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_REAR_FACE, {
-        "rear", {}, {}, {front_face_azimuth + M_PI, 0.0}}));
-  this->dataPtr->cube_map_faces.insert(
-      std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_RIGHT_FACE, {
-        "right", {}, {}, {front_face_azimuth + M_PI + M_PI_2, 0.0}}));
-  this->dataPtr->cube_map_faces.insert(
-      std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_TOP_FACE, {
-        "top", {}, {}, {front_face_azimuth, -M_PI_2}}));
-  this->dataPtr->cube_map_faces.insert(
-      std::make_pair<GpuLaserCubeFaceId, GpuLaserCubeFace>(GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, {
-        "bottom", {}, {}, {front_face_azimuth, M_PI_2}}));
+  // define face orientations w.r.t. front face
+  const std::map<GpuLaserCubeFaceId, GpuLaserCameraOrientationOffset> cube_camera_orientations {
+      {GpuLaserCubeFaceId::CUBE_FRONT_FACE, {front_face_azimuth, 0.}},
+      {GpuLaserCubeFaceId::CUBE_LEFT_FACE, {front_face_azimuth + M_PI_2, 0.0}},
+      {GpuLaserCubeFaceId::CUBE_REAR_FACE, {front_face_azimuth + M_PI, 0.0}},
+      {GpuLaserCubeFaceId::CUBE_RIGHT_FACE, {front_face_azimuth + M_PI + M_PI_2, 0.0}},
+      {GpuLaserCubeFaceId::CUBE_TOP_FACE, {front_face_azimuth, -M_PI_2}},
+      {GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, {front_face_azimuth, M_PI_2}},
+  };
 
   for (const double azimuth : _azimuth_values)
   {
@@ -583,7 +587,16 @@ void GpuLaser::InitMapping(const std::set<double> &_azimuth_values, const std::s
 
     for (const double elevation : _elevation_values)
     {
-      this->dataPtr->mapping.back().push_back(FindCubeFaceMapping(azimuth - min_azimuth, elevation));
+      const auto& [cube_face_id, face_coordinates] = FindCubeFaceMapping(azimuth - min_azimuth, elevation);
+      this->dataPtr->mapping.back().emplace_back(cube_face_id, face_coordinates);
+
+      // create cube map faces if necessary
+      if (this->dataPtr->cube_map_faces.find(cube_face_id) ==
+          this->dataPtr->cube_map_faces.end()) {
+        GpuLaserCubeFace face;
+        face.cameraSetting = cube_camera_orientations.at(cube_face_id);
+        this->dataPtr->cube_map_faces.insert({cube_face_id, face});
+      }
     }
   }
 }

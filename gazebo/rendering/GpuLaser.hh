@@ -223,8 +223,8 @@ namespace gazebo
       /// \param[in] cube_face The cube face.
       private: virtual void SetUpRenderTarget(GpuLaserCubeFace &_cube_face);
 
-      private: void ApplyCameraSetting(const GpuLaserCameraSetting &_setting);
-      private: void RevertCameraSetting(const GpuLaserCameraSetting &_setting);
+      private: void ApplyCameraSetting(const GpuLaserCameraOrientationOffset &_setting);
+      private: void RevertCameraSetting(const GpuLaserCameraOrientationOffset &_setting);
 
       /// \brief Horizontal half angle.
       protected: double horzHalfAngle{};
