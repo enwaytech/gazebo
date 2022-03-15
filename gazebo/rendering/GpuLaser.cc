@@ -50,8 +50,6 @@
 using namespace gazebo;
 using namespace rendering;
 
-int GpuLaserPrivate::texCount = 0;
-
 //////////////////////////////////////////////////
 GpuLaser::GpuLaser(const std::string &_namePrefix, ScenePtr _scene,
                    const bool _autoRender)
@@ -100,8 +98,6 @@ void GpuLaser::Fini()
     }
   }
 
-  this->dataPtr->texIdx.clear();
-
   delete [] this->dataPtr->laserScan;
   this->dataPtr->laserScan = nullptr;
 
@@ -130,36 +126,10 @@ void GpuLaser::CreateLaserTexture(const std::string &_textureName)
   }
 
   this->dataPtr->matFirstPass = (Ogre::Material*)(
-  Ogre::MaterialManager::getSingleton().getByName("Gazebo/LaserScan1st").get());
+  Ogre::MaterialManager::getSingleton().getByName("Gazebo/LaserScan").get());
 
   this->dataPtr->matFirstPass->load();
   this->dataPtr->matFirstPass->setCullingMode(Ogre::CULL_NONE);
-
-  this->dataPtr->matSecondPass = (Ogre::Material*)(
-  Ogre::MaterialManager::getSingleton().getByName("Gazebo/LaserScan2nd").get());
-
-  this->dataPtr->matSecondPass->load();
-
-  Ogre::TextureUnitState *texUnit;
-  for (const auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
-  {
-    const int texIndex = this->dataPtr->texCount++;
-    Ogre::Technique *technique = this->dataPtr->matSecondPass->getTechnique(0);
-    GZ_ASSERT(technique, "GpuLaser material script error: technique not found");
-
-    Ogre::Pass *pass = technique->getPass(0);
-    GZ_ASSERT(pass, "GpuLaser material script error: pass not found");
-
-    if (!pass->getTextureUnitState(cube_face.texture->getName()))
-    {
-      texUnit = pass->createTextureUnitState(cube_face.texture->getName(), texIndex);
-
-      this->dataPtr->texIdx.push_back(texIndex);
-
-      texUnit->setTextureFiltering(Ogre::TFO_NONE);
-      texUnit->setTextureAddressingMode(Ogre::TextureUnitState::TAM_MIRROR);
-    }
-  }
 }
 
 //////////////////////////////////////////////////

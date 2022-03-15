@@ -71,10 +71,6 @@ namespace gazebo
       /// \brief Pointer to Ogre material for the first rendering pass.
       public: Ogre::Material *matFirstPass;
 
-      /// \brief Pointer to Ogre material for the sencod rendering pass.
-      public: Ogre::Material *matSecondPass;
-
-
       /// \brief Temporary pointer to the current render target.
       public: Ogre::RenderTarget *currentTarget;
 
@@ -86,13 +82,6 @@ namespace gazebo
 
       /// \brief Image height of second pass.
       public: unsigned int h2nd;
-
-      /// \brief List of texture unit indices used during the second
-      /// rendering pass.
-      public: std::vector<int> texIdx;
-
-      /// Number of second pass texture units created.
-      public: static int texCount;
     };
   }
 }
