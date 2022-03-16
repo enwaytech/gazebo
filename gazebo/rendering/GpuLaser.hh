@@ -229,34 +229,34 @@ namespace gazebo
       private: void RevertCameraSetting(const GpuLaserCameraOrientationOffset &_setting);
 
       /// \brief Horizontal half angle.
-      protected: double horzHalfAngle{};
+      protected: double horzHalfAngle;
 
       /// \brief Vertical half angle.
-      protected: double vertHalfAngle{};
+      protected: double vertHalfAngle;
 
       /// \brief Ray count ratio.
-      protected: double rayCountRatio{};
+      protected: double rayCountRatio;
 
       /// \brief Horizontal field-of-view.
-      protected: double hfov{};
+      protected: double hfov;
 
       /// \brief Vertical field-of-view.
-      protected: double vfov{};
+      protected: double vfov;
 
       /// \brief Cos horizontal field-of-view.
-      protected: double chfov{};
+      protected: double chfov;
 
       /// \brief Cos vertical field-of-view.
-      protected: double cvfov{};
+      protected: double cvfov;
 
       /// \brief Near clip plane.
-      protected: double nearClip{};
+      protected: double nearClip;
 
       /// \brief Far clip plane.
-      protected: double farClip{};
+      protected: double farClip;
 
       /// \brief True if the sensor is horizontal only.
-      protected: bool isHorizontal{};
+      protected: bool isHorizontal;
 
       /// \internal
       /// \brief Pointer to private data.
