@@ -69,31 +69,31 @@ namespace gazebo
           ScenePtr _scene, const bool _autoRender = true);
 
       /// \brief Destructor
-      public: virtual ~GpuLaser();
+      public: ~GpuLaser() override;
 
       // Documentation inherited
-      public: virtual void Load(sdf::ElementPtr _sdf);
+      public: void Load(sdf::ElementPtr _sdf) override;
 
       // Documentation inherited
-      public: virtual void Load();
+      public: void Load() override;
 
       // Documentation inherited
-      public: virtual void Init();
+      public: void Init() override;
 
       // Documentation inherited
-      public: virtual void Fini();
+      public: void Fini() override;
 
       /// \brief Create the texture which is used to render laser data.
       /// \param[in] _textureName Name of the new texture.
       public: void CreateLaserTexture(const std::string &_textureName);
 
       // Documentation inherited
-      public: virtual void PostRender();
+      public: void PostRender() override;
 
       /// \brief Constant iterator to access laser data
       public: typedef GpuLaserDataIterator<GpuLaser> DataIter;
 
-      /// \brief Return an iterator to the begining of the laser data
+      /// \brief Return an iterator to the beginning of the laser data
       public: DataIter LaserDataBegin() const;
 
       /// \brief Return an iterator to one past the end of the laser data
@@ -117,9 +117,9 @@ namespace gazebo
 
       /// \internal
       /// \brief Implementation of Ogre::RenderObjectListener
-      public: virtual void notifyRenderSingleObject(Ogre::Renderable *_rend,
+      public: void notifyRenderSingleObject(Ogre::Renderable *_rend,
               const Ogre::Pass *_p, const Ogre::AutoParamDataSource *_s,
-              const Ogre::LightList *_ll, bool _supp);
+              const Ogre::LightList *_ll, bool _supp) override;
 
       /// \brief Get (horizontal_max_angle + horizontal_min_angle) * 0.5
       /// \return (horizontal_max_angle + horizontal_min_angle) * 0.5
@@ -215,7 +215,8 @@ namespace gazebo
       /// \brief Initializes the mapping of ray angles to cube map coordinates.
       public: void InitMapping(const std::set<double> &_azimuth_values, const std::set<double> &_elevation_values);
 
-      /// \brief Finds the corresponding cube map face and the coordinates of intersection of the view ray
+      /// \brief Finds the corresponding cube map face and the coordinates of
+      /// intersection of the view ray.
       /// \param[in] azimuth Horizontal angle relative to minimum angle
       /// \param[in] elevation Vertical angle
       /// \returns Mapping for the given ray
@@ -229,7 +230,8 @@ namespace gazebo
       private: virtual void RenderImpl();
 
       /// \brief Update a render target.
-      /// \param[in, out] _cube_face Cube face for which to update the render target.
+      /// \param[in, out] _cube_face Cube face for which to update the render
+      /// target.
       private: void UpdateRenderTarget(GpuLaserCubeFace &_cube_face);
 
       /// \brief Setup the render target for the specified cube face.
