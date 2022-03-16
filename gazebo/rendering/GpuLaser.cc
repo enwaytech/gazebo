@@ -45,8 +45,18 @@ using namespace rendering;
 //////////////////////////////////////////////////
 GpuLaser::GpuLaser(const std::string &_namePrefix, ScenePtr _scene,
                    const bool _autoRender)
-: Camera(_namePrefix, std::move(_scene), _autoRender),
-  dataPtr(new GpuLaserPrivate)
+  : Camera(_namePrefix, std::move(_scene), _autoRender)
+  , horzHalfAngle {0.0}
+  , vertHalfAngle {0.0}
+  , rayCountRatio {0.0}
+  , hfov {0.0}
+  , vfov {0.0}
+  , chfov {0.0}
+  , cvfov {0.0}
+  , nearClip {0.0}
+  , farClip {0.0}
+  , isHorizontal {false}
+  , dataPtr {std::make_unique<GpuLaserPrivate>()}
 {
   this->dataPtr->laserScan = nullptr;
   this->dataPtr->material = nullptr;
