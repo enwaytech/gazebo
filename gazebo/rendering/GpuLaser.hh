@@ -27,27 +27,20 @@
 
 #include "gazebo/rendering/ogre_gazebo.h"
 #include "gazebo/rendering/Camera.hh"
+#include "gazebo/rendering/GpuLaserCubeFace.hh"
 #include "gazebo/rendering/GpuLaserDataIterator.hh"
 #include "gazebo/rendering/RenderTypes.hh"
 #include "gazebo/util/system.hh"
 
 namespace Ogre
 {
-  class Material;
   class Renderable;
   class Pass;
   class AutoParamDataSource;
-  class Matrix4;
-  class MovableObject;
 }
 
 namespace gazebo
 {
-  namespace common
-  {
-    class Mesh;
-  }
-
   // Forward declare private data.
   class GpuLaserPrivate;
 

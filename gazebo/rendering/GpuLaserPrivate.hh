@@ -18,32 +18,22 @@
 #ifndef _GAZEBO_RENDERING_GPULASER_PRIVATE_HH_
 #define _GAZEBO_RENDERING_GPULASER_PRIVATE_HH_
 
+#include <map>
 #include <string>
 #include <vector>
 
 #include "gazebo/rendering/GpuLaserCubeFace.hh"
-#include "gazebo/rendering/RenderTypes.hh"
 
 #include "gazebo/common/Event.hh"
 
 namespace Ogre
 {
-  class Camera;
   class Material;
-  class MovableObject;
   class RenderTarget;
-  class SceneNode;
-  class Texture;
-  class Viewport;
 }
 
 namespace gazebo
 {
-  namespace common
-  {
-    class Mesh;
-  }
-
   namespace rendering
   {
     /// \internal
