@@ -474,6 +474,18 @@ void GpuLaser::SetVertFOV(const double _vfov)
 }
 
 //////////////////////////////////////////////////
+unsigned int GpuLaser::CameraCount() const
+{
+  return this->dataPtr->cube_map_faces.size();
+}
+
+//////////////////////////////////////////////////
+void GpuLaser::SetCameraCount(const unsigned int _cameraCount)
+{
+  /*unused*/
+}
+
+//////////////////////////////////////////////////
 double GpuLaser::CosHorzFOV() const
 {
   return this->chfov;

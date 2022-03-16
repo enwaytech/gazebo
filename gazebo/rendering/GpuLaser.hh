@@ -193,6 +193,17 @@ namespace gazebo
       /// \param[in] _vfov vertical fov
       public: void SetVertFOV(const double _vfov);
 
+      /// \brief Get the number of cameras required
+      /// \return Number of cameras needed to generate the rays
+      public: unsigned int CameraCount() const;
+
+      /// \brief Set the number of cameras required. Has no effect for this
+      /// implementation since the number of cameras is calculated based on the
+      /// rays.
+      /// \param[in] _cameraCount The number of cameras required to generate
+      /// the rays
+      public: void SetCameraCount(const unsigned int _cameraCount);
+
       /// \brief Get the ray count ratio (equivalent to aspect ratio)
       /// \return The ray count ratio (equivalent to aspect ratio)
       public: double RayCountRatio() const;
