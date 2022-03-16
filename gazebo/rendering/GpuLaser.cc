@@ -609,7 +609,7 @@ void GpuLaser::InitMapping(const std::set<double> &_azimuth_values, const std::s
 
     for (const double elevation : _elevation_values)
     {
-      const auto& [cube_face_id, face_coordinates] = FindCubeFaceMapping(azimuth - min_azimuth, elevation);
+      const auto& [cube_face_id, face_coordinates] = GpuLaser::FindCubeFaceMapping(azimuth - min_azimuth, elevation);
       this->dataPtr->mapping.back().emplace_back(cube_face_id, face_coordinates);
 
       // create cube map faces if necessary
@@ -631,7 +631,7 @@ GpuLaserCubeMappingPoint GpuLaser::FindCubeFaceMapping(const double _azimuth, co
     throw std::runtime_error("Azimuth angle should be relative to minimum angle, i.e. it must not be negative!");
   }
 
-  const GpuLaserCubeFaceId face_id = FindCubeFace(_azimuth, _elevation);
+  const GpuLaserCubeFaceId face_id = GpuLaser::FindCubeFace(_azimuth, _elevation);
 
   // center point of the face plane
   ignition::math::Vector3d plane_point;
@@ -660,7 +660,7 @@ GpuLaserCubeMappingPoint GpuLaser::FindCubeFaceMapping(const double _azimuth, co
   }
 
   const ignition::math::Vector3d plane_normal = plane_point.Normalized();
-  const ignition::math::Vector3d viewing_ray = ViewingRay(_azimuth, _elevation);
+  const ignition::math::Vector3d viewing_ray = GpuLaser::ViewingRay(_azimuth, _elevation);
 
   // calculate intersection of viewing ray with cube face plane
   const double s = (-plane_normal).Dot(-plane_point) / plane_normal.Dot(viewing_ray);
@@ -712,7 +712,7 @@ GpuLaserCubeMappingPoint GpuLaser::FindCubeFaceMapping(const double _azimuth, co
 //////////////////////////////////////////////////
 GpuLaserCubeFaceId GpuLaser::FindCubeFace(const double _azimuth, const double _elevation)
 {
-  const ignition::math::Vector3d v = ViewingRay(_azimuth, _elevation);
+  const ignition::math::Vector3d v = GpuLaser::ViewingRay(_azimuth, _elevation);
 
   // find corresponding cube face
   if (std::abs(v.Z()) > std::abs(v.X()) && std::abs(v.Z()) > std::abs(v.Y()))
