@@ -28,7 +28,6 @@
 #include "gazebo/rendering/ogre_gazebo.h"
 #include "gazebo/rendering/Camera.hh"
 #include "gazebo/rendering/GpuLaserDataIterator.hh"
-#include "gazebo/rendering/GpuLaserPrivate.hh"
 #include "gazebo/rendering/RenderTypes.hh"
 #include "gazebo/util/system.hh"
 
@@ -48,6 +47,9 @@ namespace gazebo
   {
     class Mesh;
   }
+
+  // Forward declare private data.
+  class GpuLaserPrivate;
 
   namespace rendering
   {
