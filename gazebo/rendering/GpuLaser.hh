@@ -220,7 +220,7 @@ namespace gazebo
       public: static ignition::math::Vector3d ViewingRay(const double _azimuth, const double _elevation);
 
       // Documentation inherited.
-      private: virtual void RenderImpl();
+      private: void RenderImpl() override;
 
       /// \brief Update a render target.
       /// \param[in, out] _cube_face Cube face for which to update the render
