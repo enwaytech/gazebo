@@ -237,7 +237,7 @@ void GpuRaySensor::Init()
     // ray count to maintain aspect ratio
     if (this->dataPtr->vertRayCount > 1)
     {
-      double cameraAspectRatio = 1;
+      constexpr double cameraAspectRatio = 1;
 
       this->dataPtr->laserCam->SetRayCountRatio(cameraAspectRatio);
       this->dataPtr->rangeCountRatio = cameraAspectRatio;
