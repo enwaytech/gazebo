@@ -41,11 +41,11 @@ namespace Ogre
 
 namespace gazebo
 {
-  // Forward declare private data.
-  class GpuLaserPrivate;
-
   namespace rendering
   {
+    // Forward declare private data.
+    class GpuLaserPrivate;
+
     /// \addtogroup gazebo_rendering Rendering
     /// \{
 
