@@ -226,26 +226,22 @@ void GpuRaySensor::Init()
       gzwarn << "Vertical FOV for GPU laser is capped at 180 degrees.\n";
     }
 
-    const double vfovPerCamera = M_PI_2;
+    constexpr double vfovPerCamera = M_PI_2;
     this->dataPtr->laserCam->SetVertFOV(vfovPerCamera);
     this->dataPtr->laserCam->SetVertHalfAngle((this->VerticalAngleMax()
                      + this->VerticalAngleMin()).Radian() / 2.0);
 
     this->dataPtr->laserCam->SetCosVertFOV(vfovPerCamera);
 
+    // internal camera has fixed aspect ratio of one
+    constexpr double cameraAspectRatio = 1;
+    this->dataPtr->laserCam->SetRayCountRatio(cameraAspectRatio);
+
     // If vertical ray is not 1 adjust horizontal and vertical
     // ray count to maintain aspect ratio
     if (this->dataPtr->vertRayCount > 1)
     {
-      constexpr double cameraAspectRatio = 1;
-
-      this->dataPtr->laserCam->SetRayCountRatio(cameraAspectRatio);
       this->dataPtr->rangeCountRatio = cameraAspectRatio;
-    }
-    else
-    {
-      // In case of 1 vert. ray, set a very small vertical FOV for camera
-      this->dataPtr->laserCam->SetRayCountRatio(1.0);
     }
 
     // create sets of angles and initialize cubemap
