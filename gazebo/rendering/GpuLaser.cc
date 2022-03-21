@@ -483,18 +483,6 @@ void GpuLaser::SetVertFOV(const double _vfov)
 }
 
 //////////////////////////////////////////////////
-unsigned int GpuLaser::CameraCount() const
-{
-  return this->dataPtr->cube_map_faces.size();
-}
-
-//////////////////////////////////////////////////
-void GpuLaser::SetCameraCount(const unsigned int _cameraCount)
-{
-  /*unused*/
-}
-
-//////////////////////////////////////////////////
 double GpuLaser::CosHorzFOV() const
 {
   return this->chfov;
@@ -540,6 +528,18 @@ void GpuLaser::SetNearClip(const double _near)
 void GpuLaser::SetFarClip(const double _far)
 {
   this->farClip = _far;
+}
+
+//////////////////////////////////////////////////
+unsigned int GpuLaser::CameraCount() const
+{
+  return this->dataPtr->cube_map_faces.size();
+}
+
+//////////////////////////////////////////////////
+void GpuLaser::SetCameraCount(const unsigned int _cameraCount)
+{
+  /*unused*/
 }
 
 //////////////////////////////////////////////////
