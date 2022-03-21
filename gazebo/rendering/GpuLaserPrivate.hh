@@ -54,7 +54,7 @@ namespace gazebo
       public: std::vector<float> laserBuffer;
 
       /// \brief Outgoing laser data, used by newLaserFrame event.
-      public: float *laserScan;
+      public: std::vector<float> laserScan;
 
       public: std::map<GpuLaserCubeFaceId, GpuLaserCubeFace> cube_map_faces;
 

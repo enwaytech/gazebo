@@ -58,7 +58,6 @@ GpuLaser::GpuLaser(const std::string &_namePrefix, ScenePtr _scene,
   , isHorizontal {false}
   , dataPtr {std::make_unique<GpuLaserPrivate>()}
 {
-  this->dataPtr->laserScan = nullptr;
   this->dataPtr->material = nullptr;
   this->dataPtr->horizontal_range_count = 0;
   this->dataPtr->vertical_range_count = 0;
@@ -100,8 +99,7 @@ void GpuLaser::Fini()
     }
   }
 
-  delete [] this->dataPtr->laserScan;
-  this->dataPtr->laserScan = nullptr;
+  this->dataPtr->laserScan.clear();
 
   Camera::Fini();
 }
@@ -207,15 +205,16 @@ void GpuLaser::PostRender()
       }
     }
 
-    if (!this->dataPtr->laserScan)
-    {
-      this->dataPtr->laserScan = new float[size];
+    if (this->dataPtr->laserScan.size() != size) {
+      this->dataPtr->laserScan.resize(size);
     }
 
-    memcpy(this->dataPtr->laserScan, this->dataPtr->laserBuffer.data(),
-           size * sizeof(this->dataPtr->laserScan[0]));
+    std::copy(this->dataPtr->laserBuffer.begin(),
+              this->dataPtr->laserBuffer.end(),
+              this->dataPtr->laserScan.begin());
 
-    this->dataPtr->newLaserFrame(this->dataPtr->laserScan, this->dataPtr->horizontal_range_count,
+    this->dataPtr->newLaserFrame(
+        this->dataPtr->laserScan.data(), this->dataPtr->horizontal_range_count,
         this->dataPtr->vertical_range_count, 3, "BLABLA");
   }
 
