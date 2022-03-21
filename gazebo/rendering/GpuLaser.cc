@@ -373,8 +373,8 @@ GpuLaser::DataIter GpuLaser::LaserDataBegin() const
   const unsigned int rangeOffset = 0;
   // intensity data in G channel
   const unsigned int intenOffset = 1;
-  return DataIter(index, this->dataPtr->laserBuffer.data(), skip, rangeOffset,
-      intenOffset, this->dataPtr->horizontal_range_count);
+  return {index, this->dataPtr->laserBuffer.data(), skip, rangeOffset,
+          intenOffset, this->dataPtr->horizontal_range_count};
 }
 
 //////////////////////////////////////////////////
@@ -388,8 +388,8 @@ GpuLaser::DataIter GpuLaser::LaserDataEnd() const
   const unsigned int rangeOffset = 0;
   // intensity data in G channel
   const unsigned int intenOffset = 1;
-  return DataIter(index, this->dataPtr->laserBuffer.data(), skip, rangeOffset,
-      intenOffset, this->dataPtr->horizontal_range_count);
+  return {index, this->dataPtr->laserBuffer.data(), skip, rangeOffset,
+          intenOffset, this->dataPtr->horizontal_range_count};
 }
 
 //////////////////////////////////////////////////
