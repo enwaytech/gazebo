@@ -210,13 +210,25 @@ namespace gazebo
 
       /// \brief Finds the corresponding cube map face and the coordinates of
       /// intersection of the view ray.
-      /// \param[in] azimuth Horizontal angle relative to minimum angle
-      /// \param[in] elevation Vertical angle
+      /// \note The azimuth must be specified relative to the minimum azimuth value!
+      /// \param[in] _azimuth Horizontal angle (radians) relative to minimum azimuth angle
+      /// \param[in] _elevation Vertical angle (radians) where zero is orthogonal to the spin axis
       /// \returns Mapping for the given ray
       public: static GpuLaserCubeMappingPoint FindCubeFaceMapping(const double _azimuth, const double _elevation);
 
+      /// \brief Finds the corresponding face of the cube map for a pair of
+      /// azimuth and elevation angles.
+      /// \note The azimuth must be specified relative to the minimum azimuth value!
+      /// \param[in] _azimuth Horizontal angle (radians) relative to minimum azimuth angle
+      /// \param[in] _elevation Vertical angle (radians) where zero is orthogonal to the spin axis
+      /// \returns Identifier for the corresponding face.
       public: static GpuLaserCubeFaceId FindCubeFace(const double _azimuth, const double _elevation);
 
+      /// \brief Calculates a vector in the direction of the ray.
+      /// \note The azimuth must be specified relative to the minimum azimuth value!
+      /// \param[in] _azimuth Horizontal angle (radians) relative to minimum azimuth angle
+      /// \param[in] _elevation Vertical angle (radians) where zero is orthogonal to the spin axis
+      /// \returns Viewing ray vector
       public: static ignition::math::Vector3d ViewingRay(const double _azimuth, const double _elevation);
 
       // Documentation inherited.

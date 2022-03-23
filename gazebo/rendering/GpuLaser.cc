@@ -746,6 +746,7 @@ GpuLaserCubeFaceId GpuLaser::FindCubeFace(const double _azimuth, const double _e
 //////////////////////////////////////////////////
 ignition::math::Vector3d GpuLaser::ViewingRay(const double _azimuth, const double _elevation)
 {
+  /// subtracting M_PI_4 from azimuth because cube face horizontal center correspondents to azimuth = M_PI_4
   return {std::cos(_azimuth - M_PI_4) * std::cos(_elevation),
           std::sin(_azimuth - M_PI_4) * std::cos(_elevation),
           std::sin(_elevation)};
