@@ -100,23 +100,28 @@ TEST_F(GpuLaserInternals_TEST, FindCubeFaceMappingTest)
 
   GpuLaserCubeMappingPoint p;
 
+  constexpr double numeric_tolerance = 1e-3;
+
   // ray straight ahead
   ASSERT_NO_THROW(p = rendering::GpuLaser::FindCubeFaceMapping(M_PI_4, 0.));
   EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, p.first);
-  EXPECT_DOUBLE_EQ(0.5, p.second.X());
-  EXPECT_DOUBLE_EQ(0.5, p.second.Y());
+  EXPECT_NEAR(0.5, p.second.X(), numeric_tolerance);
+  EXPECT_NEAR(0.5, p.second.Y(), numeric_tolerance);
 
   // ray at minimum azimuth
   ASSERT_NO_THROW(p = rendering::GpuLaser::FindCubeFaceMapping(0., 0.));
   EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, p.first);
-  EXPECT_DOUBLE_EQ(0.5, p.second.X());
-  EXPECT_DOUBLE_EQ(1.0, p.second.Y());
+  EXPECT_NEAR(1.0, p.second.X(), numeric_tolerance);
+  EXPECT_NEAR(0.5, p.second.Y(), numeric_tolerance);
+
+  const double corner_elevation = std::atan(M_SQRT1_2);
+  constexpr double corner_offset = 1e-4;
 
   // ray at bottom left rear corner
-  ASSERT_NO_THROW(p = rendering::GpuLaser::FindCubeFaceMapping(M_PI, -0.6154));
+  ASSERT_NO_THROW(p = rendering::GpuLaser::FindCubeFaceMapping(M_PI + corner_offset, - corner_elevation + corner_offset));
   EXPECT_EQ(GpuLaserCubeFaceId::CUBE_REAR_FACE, p.first);
-  EXPECT_NEAR(1.0, p.second.X(), 1e-4);
-  EXPECT_DOUBLE_EQ(1.0, p.second.Y());
+  EXPECT_NEAR(1.0, p.second.X(), numeric_tolerance);
+  EXPECT_NEAR(1.0, p.second.Y(), numeric_tolerance);
 }
 
 TEST_F(GpuLaserInternals_TEST, ViewingRayTest)
