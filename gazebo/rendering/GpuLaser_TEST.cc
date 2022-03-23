@@ -160,31 +160,54 @@ TEST_F(GpuLaserInternals_TEST, FindCubeFaceTest)
 {
   using namespace rendering;
 
-  // minimal azimuth
+  // at zero elevation
   EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, GpuLaser::FindCubeFace(0., 0.));
   EXPECT_EQ(GpuLaserCubeFaceId::CUBE_LEFT_FACE, GpuLaser::FindCubeFace(M_PI_2, 0.));
   EXPECT_EQ(GpuLaserCubeFaceId::CUBE_REAR_FACE, GpuLaser::FindCubeFace(M_PI, 0.));
   EXPECT_EQ(GpuLaserCubeFaceId::CUBE_RIGHT_FACE, GpuLaser::FindCubeFace(M_PI + M_PI_2, 0.));
 
-  // front top right corner
-  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, GpuLaser::FindCubeFace(0., 0.6154));
-  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_TOP_FACE, GpuLaser::FindCubeFace(0., 0.6155));
-
-  // front top left corner
-  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, GpuLaser::FindCubeFace(M_PI_2 - 1e-4, 0.6154));
-  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_TOP_FACE, GpuLaser::FindCubeFace(M_PI_2 - 1e-4, 0.6155));
-
-  // front bottom right corner
-  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, GpuLaser::FindCubeFace(0., -0.6154));
-  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, GpuLaser::FindCubeFace(0., -0.6155));
-
-  // front bottom left corner
-  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, GpuLaser::FindCubeFace(M_PI_2 - 1e-4, -0.6154));
-  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, GpuLaser::FindCubeFace(M_PI_2 - 1e-4, -0.6155));
-
   // extreme elevation values
   EXPECT_EQ(GpuLaserCubeFaceId::CUBE_TOP_FACE, GpuLaser::FindCubeFace(0., M_PI_2));
   EXPECT_EQ(GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, GpuLaser::FindCubeFace(0., -M_PI_2));
+
+  const double corner_elevation = std::atan(M_SQRT1_2);
+  constexpr double corner_offset = 1e-4;
+
+  // 4 corners of the front face
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, GpuLaser::FindCubeFace(corner_offset, corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, GpuLaser::FindCubeFace(M_PI_2 - corner_offset, corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, GpuLaser::FindCubeFace(corner_offset, - corner_elevation + corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_FRONT_FACE, GpuLaser::FindCubeFace(M_PI_2 - corner_offset, - corner_elevation + corner_offset));
+
+  // 4 corners of the left face
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_LEFT_FACE, GpuLaser::FindCubeFace(M_PI_2 + corner_offset, corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_LEFT_FACE, GpuLaser::FindCubeFace(M_PI - corner_offset, corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_LEFT_FACE, GpuLaser::FindCubeFace(M_PI_2 + corner_offset, - corner_elevation + corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_LEFT_FACE, GpuLaser::FindCubeFace(M_PI - corner_offset, - corner_elevation + corner_offset));
+
+  // 4 corners of the rear face
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_REAR_FACE, GpuLaser::FindCubeFace(M_PI + corner_offset, corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_REAR_FACE, GpuLaser::FindCubeFace(M_PI + M_PI_2 - corner_offset, corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_REAR_FACE, GpuLaser::FindCubeFace(M_PI + corner_offset, - corner_elevation + corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_REAR_FACE, GpuLaser::FindCubeFace(M_PI + M_PI_2 - corner_offset, - corner_elevation + corner_offset));
+
+  // 4 corners of the right face
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_RIGHT_FACE, GpuLaser::FindCubeFace(M_PI + M_PI_2 + corner_offset, corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_RIGHT_FACE, GpuLaser::FindCubeFace(M_PI + M_PI - corner_offset, corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_RIGHT_FACE, GpuLaser::FindCubeFace(M_PI + M_PI_2 + corner_offset, - corner_elevation + corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_RIGHT_FACE, GpuLaser::FindCubeFace(M_PI + M_PI - corner_offset, - corner_elevation + corner_offset));
+
+  // 4 corners of the top face
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_TOP_FACE, GpuLaser::FindCubeFace(0.0, corner_elevation + corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_TOP_FACE, GpuLaser::FindCubeFace(M_PI_2, corner_elevation + corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_TOP_FACE, GpuLaser::FindCubeFace(M_PI, corner_elevation + corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_TOP_FACE, GpuLaser::FindCubeFace(M_PI + M_PI_2, corner_elevation + corner_offset));
+
+  // 4 corners of the bottom face
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, GpuLaser::FindCubeFace(0.0, - corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, GpuLaser::FindCubeFace(M_PI_2, - corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, GpuLaser::FindCubeFace(M_PI, - corner_elevation - corner_offset));
+  EXPECT_EQ(GpuLaserCubeFaceId::CUBE_BOTTOM_FACE, GpuLaser::FindCubeFace(M_PI + M_PI_2, - corner_elevation - corner_offset));
 }
 
 /////////////////////////////////////////////////
