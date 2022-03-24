@@ -56,10 +56,12 @@ namespace gazebo
       /// \brief Outgoing laser data, used by newLaserFrame event.
       public: std::vector<float> laserScan;
 
+      /// \brief The cube faces that are used by the sensor.
       public: std::map<GpuLaserCubeFaceId, GpuLaserCubeFace> cube_map_faces;
 
-      /// \brief Stores the mapping of all rays
-      /// First dimension is azimuth, second dimension is elevation.
+      /// \brief Stores in a grid the mapping of lidar rays to cube map
+      /// coordinates. The first dimension of this grid is azimuth, the second
+      /// dimension is elevation.
       public: std::vector<std::vector<GpuLaserCubeMappingPoint>> mapping;
 
       /// \brief Pointer to Ogre material for the rendering pass.

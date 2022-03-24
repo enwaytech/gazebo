@@ -206,6 +206,10 @@ namespace gazebo
       public: void SetRayCountRatio(const double _rayCountRatio);
 
       /// \brief Initializes the mapping of ray angles to cube map coordinates.
+      /// Each combination of values (azimuth, elevation) corresponds to one
+      /// laser ray.
+      /// \param[in] _azimuth_values Set of azimuth angles (radians)
+      /// \param[in] _elevation_values Set of elevation angles (radians)
       public: void InitMapping(const std::set<double> &_azimuth_values, const std::set<double> &_elevation_values);
 
       /// \brief Finds the corresponding cube map face and the coordinates of
@@ -243,7 +247,13 @@ namespace gazebo
       /// \param[in] cube_face The cube face.
       private: virtual void SetUpRenderTarget(GpuLaserCubeFace &_cube_face);
 
+      /// \brief Applies the camera orientation offset by rotation in roll and yaw.
+      /// \param[in] _setting The camera orientation offset to apply.
       private: void ApplyCameraSetting(const GpuLaserCameraOrientationOffset &_setting);
+
+      /// \brief Inverse of GpuLaser::ApplyCameraSetting(): Reverts the given
+      /// camera orientation offset.
+      /// \param[in] _setting The camera orientation offset to revert.
       private: void RevertCameraSetting(const GpuLaserCameraOrientationOffset &_setting);
 
       /// \brief Horizontal half angle.
