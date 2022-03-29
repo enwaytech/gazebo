@@ -170,6 +170,9 @@ void GpuLaser::PostRender()
     // read ranges
     GZ_ASSERT(this->dataPtr->horizontal_range_count == this->dataPtr->mapping.size(), "cube face mapping size doesn't match number of horizontal rays");
 
+    const unsigned int image_width = this->ImageWidth();
+    const unsigned int image_height = this->ImageHeight();
+
     for (unsigned int azimuth_i = 0; azimuth_i < this->dataPtr->horizontal_range_count; azimuth_i++)
     {
       GZ_ASSERT(this->dataPtr->vertical_range_count == this->dataPtr->mapping[azimuth_i].size(), "cube face mapping size doesn't match number of vertical rays");
@@ -181,10 +184,10 @@ void GpuLaser::PostRender()
         const auto& [cube_face_id, face_coordinates] = this->dataPtr->mapping[azimuth_i][elevation_i];
 
         // pixel coordinates
-        const auto x = static_cast<unsigned int>(face_coordinates.X() * (this->ImageWidth() - 1));
-        const auto y = static_cast<unsigned int>(face_coordinates.Y() * (this->ImageHeight() - 1));
+        const auto x = static_cast<unsigned int>(face_coordinates.X() * (image_width - 1));
+        const auto y = static_cast<unsigned int>(face_coordinates.Y() * (image_height - 1));
 
-        const unsigned int frame_index = (y * this->ImageWidth() + x) * 3;
+        const unsigned int frame_index = (y * image_width + x) * 3;
 
         try
         {
