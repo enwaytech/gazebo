@@ -784,3 +784,21 @@ void GpuRaySensor::ResetLastUpdateTime()
   if (GpuRaySensor::useStrictRate)
     this->dataPtr->nextRenderingTime = std::numeric_limits<double>::quiet_NaN();
 }
+
+//////////////////////////////////////////////////
+unsigned int GpuRaySensor::CameraCount() const
+{
+  return this->dataPtr->laserCam->CameraCount();
+}
+
+//////////////////////////////////////////////////
+double GpuRaySensor::HorzHalfAngle() const
+{
+  return (this->AngleMax() + this->AngleMin()).Radian() / 2.0;
+}
+
+//////////////////////////////////////////////////
+double GpuRaySensor::VertHalfAngle() const
+{
+  return (this->VerticalAngleMax() + this->VerticalAngleMin()).Radian() / 2.0;
+}
