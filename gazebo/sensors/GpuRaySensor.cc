@@ -194,12 +194,11 @@ void GpuRaySensor::Init()
       gzwarn << "Horizontal FOV for GPU laser is capped at 360 degrees.\n";
     }
 
-    this->dataPtr->laserCam->SetHorzHalfAngle(
-      (this->AngleMax() + this->AngleMin()).Radian() / 2.0);
+    this->dataPtr->laserCam->SetHorzHalfAngle(this->HorzHalfAngle());
 
     // we use a fixed square camera FOV
-    this->dataPtr->laserCam->SetHorzFOV(M_PI_2);
-    this->dataPtr->laserCam->SetCosHorzFOV(M_PI_2);
+    constexpr double hfovPerCamera = M_PI_2;
+    this->dataPtr->laserCam->SetHorzFOV(hfovPerCamera);
 
     // vertical laser setup
     double vfovTotal;
@@ -215,8 +214,10 @@ void GpuRaySensor::Init()
       if (this->VerticalAngleMax() != this->VerticalAngleMin())
       {
         gzwarn << "Only one vertical ray but vertical min. and max. angle "
-            "are not equal. Min. angle is used.\n";
-        this->SetVerticalAngleMax(this->VerticalAngleMin().Radian());
+                  "are not equal. Half angle between min. and max. is used.\n";
+        const double vertHalfAngle = this->VertHalfAngle();
+        this->SetVerticalAngleMin(vertHalfAngle);
+        this->SetVerticalAngleMax(vertHalfAngle);
       }
     }
 
@@ -228,10 +229,15 @@ void GpuRaySensor::Init()
 
     constexpr double vfovPerCamera = M_PI_2;
     this->dataPtr->laserCam->SetVertFOV(vfovPerCamera);
-    this->dataPtr->laserCam->SetVertHalfAngle((this->VerticalAngleMax()
-                     + this->VerticalAngleMin()).Radian() / 2.0);
+    this->dataPtr->laserCam->SetVertHalfAngle(this->VertHalfAngle());
 
-    this->dataPtr->laserCam->SetCosVertFOV(vfovPerCamera);
+    // unused by this implementation, but keep for backwards compatibility
+    const double cosHorzFov =
+        2 * atan(tan(hfovPerCamera / 2) / cos(vfovTotal / 2));
+    const double cosVertFov =
+        2 * atan(tan(vfovTotal / 2) / cos(hfovPerCamera / 2));
+    this->dataPtr->laserCam->SetCosHorzFOV(cosHorzFov);
+    this->dataPtr->laserCam->SetCosVertFOV(cosVertFov);
 
     // internal camera has fixed aspect ratio of one
     constexpr double cameraAspectRatio = 1;
@@ -269,7 +275,24 @@ void GpuRaySensor::Init()
       this->dataPtr->laserCam->InitMapping(azimuth_angles, elevation_angles);
     }
 
-    const unsigned int camera_resolution = std::max(this->RayCount() / 4, this->VerticalRayCount() / 2);
+    // take ranges per radian of FOV as a guideline for camera resolution
+    double rangesPerFov = 0;
+    if (vfovTotal > 0)
+    {
+      rangesPerFov = std::max(rangesPerFov, this->VerticalRangeCount() / vfovTotal);
+    }
+    if (hfovTotal > 0)
+    {
+      rangesPerFov = std::max(rangesPerFov, this->RangeCount() / hfovTotal);
+    }
+
+    // ranges per camera (which has 90 deg FOV)
+    const unsigned int ranges = static_cast<int>(rangesPerFov * M_PI_2);
+
+    // ensure minimal texture size (to mitigate issues with stepped point cloud
+    // especially for shallow angles of incidence)
+    constexpr unsigned int min_texture_size = 1024;
+    const unsigned int camera_resolution = std::max(ranges, min_texture_size);
 
     // Initialize camera sdf for GpuLaser
     this->dataPtr->cameraElem.reset(new sdf::Element);
