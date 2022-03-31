@@ -101,8 +101,7 @@ namespace gazebo
                   unsigned int _height, unsigned int _depth,
                   const std::string &_format)> _subscriber);
 
-      /// \brief Set the number of samples in the width and height for the
-      /// first pass texture.
+      /// \brief Set the number of samples in width and height.
       /// \param[in] _w Number of samples in the horizontal sweep
       /// \param[in] _h Number of samples in the vertical sweep
       public: void SetRangeCount(const unsigned int _w,
@@ -208,8 +207,8 @@ namespace gazebo
       /// \brief Initializes the mapping of ray angles to cube map coordinates.
       /// Each combination of values (azimuth, elevation) corresponds to one
       /// laser ray.
-      /// \param[in] _azimuth_values Set of azimuth angles (radians)
-      /// \param[in] _elevation_values Set of elevation angles (radians)
+      /// \param[in] _azimuth_values Set of azimuth angles (radians). The order matters!
+      /// \param[in] _elevation_values Set of elevation angles (radians). The order matters!
       public: void InitMapping(const std::set<double> &_azimuth_values, const std::set<double> &_elevation_values);
 
       /// \brief Finds the corresponding cube map face and the coordinates of

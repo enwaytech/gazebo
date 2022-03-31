@@ -59,8 +59,8 @@ GpuLaser::GpuLaser(const std::string &_namePrefix, ScenePtr _scene,
   , dataPtr {std::make_unique<GpuLaserPrivate>()}
 {
   this->dataPtr->material = nullptr;
-  this->dataPtr->horizontal_range_count = 0;
-  this->dataPtr->vertical_range_count = 0;
+  this->dataPtr->horizontalRangeCount = 0;
+  this->dataPtr->verticalRangeCount = 0;
 }
 
 //////////////////////////////////////////////////
@@ -90,12 +90,12 @@ void GpuLaser::Init()
 //////////////////////////////////////////////////
 void GpuLaser::Fini()
 {
-  for (const auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
+  for (const auto& [cubeFaceId, cubeFace] : this->dataPtr->cubeMapFaces)
   {
-    if (!cube_face.texture.isNull())
+    if (!cubeFace.texture.isNull())
     {
       Ogre::TextureManager::getSingleton().remove(
-          cube_face.texture->getName());
+          cubeFace.texture->getName());
     }
   }
 
@@ -107,20 +107,20 @@ void GpuLaser::Fini()
 //////////////////////////////////////////////////
 void GpuLaser::CreateLaserTexture(const std::string &_textureName)
 {
-  unsigned int cube_face_tex_index = 0;
-  for (auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
+  unsigned int cubeFaceTexIndex = 0;
+  for (auto& [cubeFaceId, cubeFace] : this->dataPtr->cubeMapFaces)
   {
     std::stringstream texName;
-    texName << _textureName << "_cube_face_texture_" << cube_face_tex_index;
+    texName << _textureName << "_cube_face_texture_" << cubeFaceTexIndex;
 
-    cube_face.texture = Ogre::TextureManager::getSingleton().createManual(
+    cubeFace.texture = Ogre::TextureManager::getSingleton().createManual(
         texName.str(), "General", Ogre::TEX_TYPE_2D,
         this->ImageWidth(), this->ImageHeight(), 0,
         Ogre::PF_FLOAT32_RGB, Ogre::TU_RENDERTARGET);
 
-    this->SetUpRenderTarget(cube_face);
+    this->SetUpRenderTarget(cubeFace);
 
-    cube_face_tex_index++;
+    cubeFaceTexIndex++;
   }
 
   this->dataPtr->material =
@@ -135,90 +135,89 @@ void GpuLaser::CreateLaserTexture(const std::string &_textureName)
 //////////////////////////////////////////////////
 void GpuLaser::PostRender()
 {
-  for (auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
+  for (auto& [cubeFaceId, cubeFace] : this->dataPtr->cubeMapFaces)
   {
-    cube_face.texture->getBuffer()->getRenderTarget()->swapBuffers();
+    cubeFace.texture->getBuffer()->getRenderTarget()->swapBuffers();
   }
 
+  constexpr unsigned int numberOfChannels = 3;
+
+  IGN_PROFILE_BEGIN("blitToMemory");
+  // Blit the depth buffer if needed
   if (this->newData && this->captureData)
   {
-    const size_t size = this->dataPtr->horizontal_range_count * this->dataPtr->vertical_range_count * 3;
+    const unsigned int imageWidth = this->ImageWidth();
+    const unsigned int imageHeight = this->ImageHeight();
 
-    // Blit the depth buffer if needed
+    const size_t laserBufferSize = this->dataPtr->horizontalRangeCount * this->dataPtr->verticalRangeCount * numberOfChannels;
+    const size_t depthImageBufferSize = imageWidth * imageHeight * numberOfChannels;
+
     if (this->dataPtr->laserBuffer.empty())
     {
-      this->dataPtr->laserBuffer.resize(size);
+      this->dataPtr->laserBuffer.resize(laserBufferSize);
     }
 
-    for (auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
+    for (auto& [cubeFaceId, cubeFace] : this->dataPtr->cubeMapFaces)
     {
-      const Ogre::HardwarePixelBufferSharedPtr pixelBuffer = cube_face.texture->getBuffer();
+      cubeFace.depthImg.resize(depthImageBufferSize);
 
-      const Ogre::Viewport *viewport = cube_face.texture->getBuffer()->getRenderTarget()->getViewport(0);
-      const unsigned int frameWidth = viewport->getActualWidth();
-      const unsigned int frameHeight = viewport->getActualHeight();
-      const size_t frameSize = frameWidth * frameHeight * 3;
+      Ogre::PixelBox dstBox(imageWidth, imageHeight, 1, Ogre::PF_FLOAT32_RGB, cubeFace.depthImg.data());
 
-      cube_face.depthImg.resize(frameSize);
-
-      Ogre::PixelBox dstBox(frameWidth, frameHeight,
-                            1, Ogre::PF_FLOAT32_RGB, cube_face.depthImg.data());
-
-      pixelBuffer->blitToMemory(dstBox);
+      cubeFace.texture->getBuffer()->blitToMemory(dstBox);
     }
+    IGN_PROFILE_END();
 
     // read ranges
-    GZ_ASSERT(this->dataPtr->horizontal_range_count == this->dataPtr->mapping.size(), "cube face mapping size doesn't match number of horizontal rays");
+    GZ_ASSERT(this->dataPtr->horizontalRangeCount == this->dataPtr->mapping.size(), "cube face mapping size doesn't match number of horizontal rays");
 
-    const unsigned int image_width = this->ImageWidth();
-    const unsigned int image_height = this->ImageHeight();
-
-    for (unsigned int azimuth_i = 0; azimuth_i < this->dataPtr->horizontal_range_count; azimuth_i++)
+    IGN_PROFILE_BEGIN("applyMapping");
+    for (unsigned int azimuthIndex = 0; azimuthIndex < this->dataPtr->horizontalRangeCount; ++azimuthIndex)
     {
-      GZ_ASSERT(this->dataPtr->vertical_range_count == this->dataPtr->mapping[azimuth_i].size(), "cube face mapping size doesn't match number of vertical rays");
+      GZ_ASSERT(this->dataPtr->verticalRangeCount == this->dataPtr->mapping[azimuthIndex].size(), "cube face mapping size doesn't match number of vertical rays");
 
-      for (unsigned int elevation_i = 0; elevation_i < this->dataPtr->vertical_range_count; elevation_i++)
+      for (unsigned int elevationIndex = 0; elevationIndex < this->dataPtr->verticalRangeCount; ++elevationIndex)
       {
-        const unsigned int index = (elevation_i * this->dataPtr->horizontal_range_count + azimuth_i) * 3;
+        const auto& [cubeFaceId, faceCoordinates] = this->dataPtr->mapping[azimuthIndex][elevationIndex];
 
-        const auto& [cube_face_id, face_coordinates] = this->dataPtr->mapping[azimuth_i][elevation_i];
+        GZ_ASSERT(this->dataPtr->cubeMapFaces.find(cubeFaceId) != this->dataPtr->cubeMapFaces.end(), "Required cube face has not been initialized");
+
+        const auto &cubeFace = this->dataPtr->cubeMapFaces.at(cubeFaceId);
 
         // pixel coordinates
-        const auto x = static_cast<unsigned int>(face_coordinates.X() * (image_width - 1));
-        const auto y = static_cast<unsigned int>(face_coordinates.Y() * (image_height - 1));
+        const auto imageX = static_cast<unsigned int>(faceCoordinates.X() * (imageWidth - 1));
+        const auto imageY = static_cast<unsigned int>(faceCoordinates.Y() * (imageHeight - 1));
 
-        const unsigned int frame_index = (y * image_width + x) * 3;
+        GZ_ASSERT(imageX < imageWidth, "Calculated image X exceeds image width");
+        GZ_ASSERT(imageY < imageHeight, "Calculated image Y exceeds image height");
 
-        try
-        {
-          this->dataPtr->laserBuffer.at(index) =
-              this->dataPtr->cube_map_faces.at(cube_face_id)
-                  .depthImg.at(frame_index);
-          this->dataPtr->laserBuffer.at(index + 1) =
-              this->dataPtr->cube_map_faces.at(cube_face_id)
-                  .depthImg.at(frame_index + 1);
-          this->dataPtr->laserBuffer.at(index + 2) =
-              this->dataPtr->cube_map_faces.at(cube_face_id)
-                  .depthImg.at(frame_index + 2);
-        }
-        catch(const std::out_of_range& /*unused*/)
-        {
-          gzthrow("Required cube face has not been initialized! This is a fatal bug!");
-        }
+        const unsigned int depthImageBufferIndex = (imageY * imageWidth + imageX) * numberOfChannels;
+
+        GZ_ASSERT(depthImageBufferIndex + 2 < cubeFace.depthImg.size(), "Depth image buffer index is out of range");
+
+        const unsigned int laserBufferIndex = (elevationIndex * this->dataPtr->horizontalRangeCount + azimuthIndex) * numberOfChannels;
+
+        GZ_ASSERT(laserBufferIndex + 2 < this->dataPtr->laserBuffer.size(), "Laser buffer index is out of range");
+
+        this->dataPtr->laserBuffer[laserBufferIndex] = cubeFace.depthImg[depthImageBufferIndex];
+        this->dataPtr->laserBuffer[laserBufferIndex + 1] = cubeFace.depthImg[depthImageBufferIndex + 1];
+        this->dataPtr->laserBuffer[laserBufferIndex + 2] = cubeFace.depthImg[depthImageBufferIndex + 2];
       }
     }
+    IGN_PROFILE_END();
 
-    if (this->dataPtr->laserScan.size() != size) {
-      this->dataPtr->laserScan.resize(size);
+    IGN_PROFILE_BEGIN("copyBufferToScan");
+    if (this->dataPtr->laserScan.size() != laserBufferSize) {
+      this->dataPtr->laserScan.resize(laserBufferSize);
     }
 
     std::copy(this->dataPtr->laserBuffer.begin(),
               this->dataPtr->laserBuffer.end(),
               this->dataPtr->laserScan.begin());
+    IGN_PROFILE_END();
 
     this->dataPtr->newLaserFrame(
-        this->dataPtr->laserScan.data(), this->dataPtr->horizontal_range_count,
-        this->dataPtr->vertical_range_count, 3, "BLABLA");
+        this->dataPtr->laserScan.data(), this->dataPtr->horizontalRangeCount,
+        this->dataPtr->verticalRangeCount, 3, "BLABLA");
   }
 
   this->newData = false;
@@ -354,11 +353,11 @@ void GpuLaser::RenderImpl()
   sceneMgr->_suppressRenderStateChanges(true);
   sceneMgr->addRenderObjectListener(this);
 
-  for (auto& [cube_face_id, cube_face] : this->dataPtr->cube_map_faces)
+  for (auto& [cubeFaceId, cubeFace] : this->dataPtr->cubeMapFaces)
   {
-    this->ApplyCameraSetting(cube_face.cameraSetting);
-    this->UpdateRenderTarget(cube_face);
-    this->RevertCameraSetting(cube_face.cameraSetting);
+    this->ApplyCameraSetting(cubeFace.cameraSetting);
+    this->UpdateRenderTarget(cubeFace);
+    this->RevertCameraSetting(cubeFace.cameraSetting);
   }
 
   sceneMgr->removeRenderObjectListener(this);
@@ -376,13 +375,13 @@ GpuLaser::DataIter GpuLaser::LaserDataBegin() const
   // intensity data in G channel
   const unsigned int intenOffset = 1;
   return {index, this->dataPtr->laserBuffer.data(), skip, rangeOffset,
-          intenOffset, this->dataPtr->horizontal_range_count};
+          intenOffset, this->dataPtr->horizontalRangeCount};
 }
 
 //////////////////////////////////////////////////
 GpuLaser::DataIter GpuLaser::LaserDataEnd() const
 {
-  const unsigned int index = this->dataPtr->vertical_range_count * this->dataPtr->horizontal_range_count;
+  const unsigned int index = this->dataPtr->verticalRangeCount * this->dataPtr->horizontalRangeCount;
 
   // Data stuffed into three floats (RGB)
   const unsigned int skip = 3;
@@ -391,7 +390,7 @@ GpuLaser::DataIter GpuLaser::LaserDataEnd() const
   // intensity data in G channel
   const unsigned int intenOffset = 1;
   return {index, this->dataPtr->laserBuffer.data(), skip, rangeOffset,
-          intenOffset, this->dataPtr->horizontal_range_count};
+          intenOffset, this->dataPtr->horizontalRangeCount};
 }
 
 //////////////////////////////////////////////////
@@ -421,8 +420,8 @@ void GpuLaser::SetUpRenderTarget(GpuLaserCubeFace &_cube_face)
 /////////////////////////////////////////////////
 void GpuLaser::SetRangeCount(const unsigned int _w, const unsigned int _h)
 {
-  this->dataPtr->horizontal_range_count = _w;
-  this->dataPtr->vertical_range_count = _h;
+  this->dataPtr->horizontalRangeCount = _w;
+  this->dataPtr->verticalRangeCount = _h;
 }
 
 //////////////////////////////////////////////////
@@ -536,7 +535,7 @@ void GpuLaser::SetFarClip(const double _far)
 //////////////////////////////////////////////////
 unsigned int GpuLaser::CameraCount() const
 {
-  return this->dataPtr->cube_map_faces.size();
+  return this->dataPtr->cubeMapFaces.size();
 }
 
 //////////////////////////////////////////////////
@@ -615,11 +614,11 @@ void GpuLaser::InitMapping(const std::set<double> &_azimuth_values, const std::s
       this->dataPtr->mapping.back().emplace_back(cube_face_id, face_coordinates);
 
       // create cube map faces if necessary
-      if (this->dataPtr->cube_map_faces.find(cube_face_id) ==
-          this->dataPtr->cube_map_faces.end()) {
+      if (this->dataPtr->cubeMapFaces.find(cube_face_id) ==
+          this->dataPtr->cubeMapFaces.end()) {
         GpuLaserCubeFace face;
         face.cameraSetting = cube_camera_orientations.at(cube_face_id);
-        this->dataPtr->cube_map_faces.insert({cube_face_id, face});
+        this->dataPtr->cubeMapFaces.insert({cube_face_id, face});
       }
     }
   }

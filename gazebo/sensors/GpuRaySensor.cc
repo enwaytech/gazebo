@@ -250,31 +250,6 @@ void GpuRaySensor::Init()
       this->dataPtr->rangeCountRatio = cameraAspectRatio;
     }
 
-    // create sets of angles and initialize cubemap
-    // eventually, this should also be able to handle irregular spaced rays
-    // but that would require changes to the SDFormat definition of a ray sensor
-    {
-      std::set<double> azimuth_angles;
-      const double azimuth_angle_increment = hfovTotal / (this->dataPtr->horzRangeCount - 1);
-      double azimuth = this->AngleMin().Radian();
-      for (unsigned int i = 0; i < this->dataPtr->horzRangeCount; i++)
-      {
-        azimuth_angles.insert(azimuth);
-        azimuth += azimuth_angle_increment;
-      }
-
-      std::set<double> elevation_angles;
-      const double elevation_angle_increment = vfovTotal / (this->dataPtr->vertRangeCount - 1);
-      double elevation = this->VerticalAngleMin().Radian();
-      for (unsigned int i = 0; i < this->dataPtr->vertRangeCount; i++)
-      {
-        elevation_angles.insert(elevation);
-        elevation += elevation_angle_increment;
-      }
-
-      this->dataPtr->laserCam->InitMapping(azimuth_angles, elevation_angles);
-    }
-
     // take ranges per radian of FOV as a guideline for camera resolution
     double rangesPerFov = 0;
     if (vfovTotal > 0)
@@ -318,6 +293,34 @@ void GpuRaySensor::Init()
         this->RangeCount(),
         this->VerticalRangeCount());
     this->dataPtr->laserCam->SetClipDist(static_cast<float>(this->RangeMin()), static_cast<float>(this->RangeMax()));
+
+    // create sets of angles and initialize cubemap
+    // eventually, this should also be able to handle irregular spaced rays
+    // but that would require changes to the SDFormat definition of a ray sensor.
+    // Note: The order of the angles in the two sets matters as the laser
+    // readings will be returned in the same order!
+    {
+      std::set<double> azimuth_angles;
+      const double azimuth_angle_increment = hfovTotal / (this->dataPtr->horzRangeCount - 1);
+      double azimuth = this->AngleMin().Radian();
+      for (unsigned int i = 0; i < this->dataPtr->horzRangeCount; i++)
+      {
+        azimuth_angles.insert(azimuth);
+        azimuth += azimuth_angle_increment;
+      }
+
+      std::set<double> elevation_angles;
+      const double elevation_angle_increment = vfovTotal / (this->dataPtr->vertRangeCount - 1);
+      double elevation = this->VerticalAngleMin().Radian();
+      for (unsigned int i = 0; i < this->dataPtr->vertRangeCount; i++)
+      {
+        elevation_angles.insert(elevation);
+        elevation += elevation_angle_increment;
+      }
+
+      this->dataPtr->laserCam->InitMapping(azimuth_angles, elevation_angles);
+    }
+
     this->dataPtr->laserCam->CreateLaserTexture(
         this->ScopedName() + "_RttTex_Laser");
     this->dataPtr->laserCam->CreateRenderTexture(

@@ -57,7 +57,7 @@ namespace gazebo
       public: std::vector<float> laserScan;
 
       /// \brief The cube faces that are used by the sensor.
-      public: std::map<GpuLaserCubeFaceId, GpuLaserCubeFace> cube_map_faces;
+      public: std::map<GpuLaserCubeFaceId, GpuLaserCubeFace> cubeMapFaces;
 
       /// \brief Stores in a grid the mapping of lidar rays to cube map
       /// coordinates. The first dimension of this grid is azimuth, the second
@@ -71,10 +71,10 @@ namespace gazebo
       public: Ogre::RenderTarget *currentTarget;
 
       /// \brief Number of horizontal ranges.
-      public: unsigned int horizontal_range_count;
+      public: unsigned int horizontalRangeCount;
 
       /// \brief Number of vertical ranges.
-      public: unsigned int vertical_range_count;
+      public: unsigned int verticalRangeCount;
     };
   }
 }
