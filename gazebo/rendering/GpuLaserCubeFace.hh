@@ -12,7 +12,6 @@
 
 #include <ignition/math/Vector2.hh>
 
-#include "gazebo/rendering/GpuLaserCameraSetting.hh"
 #include "gazebo/rendering/ogre_gazebo.h"
 
 namespace gazebo
@@ -32,19 +31,32 @@ namespace gazebo
       CUBE_BOTTOM_FACE
     };
 
-    /// \brief Stores mapping of a single ray (combination of azimuth and elevation)
-    /// First element is ID of the corresponding cube map face
-    /// Second element is x/y coordinate of ray intersection with face (in range [0,1]x[0,1])
-    typedef std::pair<GpuLaserCubeFaceId, ignition::math::Vector2d> GpuLaserCubeMappingPoint;
+    /// \brief Stores mapping of a single laser ray (combination of azimuth and
+    /// elevation) to cube map coordinates. The first element of the pair is the
+    /// ID of the corresponding cube map face. The second element are the
+    /// normalized x/y coordinates of the intersection of the laser ray with
+    /// that cube face (in the range [0,1]x[0,1]).
+    typedef std::pair<GpuLaserCubeFaceId, ignition::math::Vector2d>
+        GpuLaserCubeMappingPoint;
 
+    /// \brief Orientation offset for camera
+    struct GpuLaserCameraOrientationOffset
+    {
+      double azimuthOffset;
+      double elevationOffset;
+    };
+
+    /// \brief Holds the data for each cube face.
     struct GpuLaserCubeFace
     {
-      std::string name;
-      std::vector<float> depth_img;
+      /// \brief The corresponding camera orientation offset
+      GpuLaserCameraOrientationOffset cameraSetting;
+
+      /// \brief The texture used to render the depth image
       Ogre::TexturePtr texture;
-      Ogre::RenderTarget *render_target; // TODO use smart pointer
-      Ogre::Viewport *viewport; // TODO use smart pointer
-      GpuLaserCameraSetting camera_setting;
+
+      /// \brief The depth image data
+      std::vector<float> depthImg;
     };
 
   }

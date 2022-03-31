@@ -18,32 +18,22 @@
 #ifndef _GAZEBO_RENDERING_GPULASER_PRIVATE_HH_
 #define _GAZEBO_RENDERING_GPULASER_PRIVATE_HH_
 
+#include <map>
 #include <string>
 #include <vector>
 
 #include "gazebo/rendering/GpuLaserCubeFace.hh"
-#include "gazebo/rendering/RenderTypes.hh"
 
 #include "gazebo/common/Event.hh"
 
 namespace Ogre
 {
-  class Camera;
   class Material;
-  class MovableObject;
   class RenderTarget;
-  class SceneNode;
-  class Texture;
-  class Viewport;
 }
 
 namespace gazebo
 {
-  namespace common
-  {
-    class Mesh;
-  }
-
   namespace rendering
   {
     /// \internal
@@ -64,35 +54,27 @@ namespace gazebo
       public: std::vector<float> laserBuffer;
 
       /// \brief Outgoing laser data, used by newLaserFrame event.
-      public: float *laserScan;
+      public: std::vector<float> laserScan;
 
-      public: std::map<GpuLaserCubeFaceId, GpuLaserCubeFace> cube_map_faces;
+      /// \brief The cube faces that are used by the sensor.
+      public: std::map<GpuLaserCubeFaceId, GpuLaserCubeFace> cubeMapFaces;
 
-      /// \brief Pointer to Ogre material for the first rendering pass.
-      public: Ogre::Material *matFirstPass;
+      /// \brief Stores in a grid the mapping of lidar rays to cube map
+      /// coordinates. The first dimension of this grid is azimuth, the second
+      /// dimension is elevation.
+      public: std::vector<std::vector<GpuLaserCubeMappingPoint>> mapping;
 
-      /// \brief Pointer to Ogre material for the sencod rendering pass.
-      public: Ogre::Material *matSecondPass;
-
+      /// \brief Pointer to Ogre material for the rendering pass.
+      public: Ogre::Material *material;
 
       /// \brief Temporary pointer to the current render target.
       public: Ogre::RenderTarget *currentTarget;
 
-      /// \brief Temporary pointer to the current material.
-      public: Ogre::Material *currentMat;
+      /// \brief Number of horizontal ranges.
+      public: unsigned int horizontalRangeCount;
 
-      /// \brief Image width of second pass.
-      public: unsigned int w2nd;
-
-      /// \brief Image height of second pass.
-      public: unsigned int h2nd;
-
-      /// \brief List of texture unit indices used during the second
-      /// rendering pass.
-      public: std::vector<int> texIdx;
-
-      /// Number of second pass texture units created.
-      public: static int texCount;
+      /// \brief Number of vertical ranges.
+      public: unsigned int verticalRangeCount;
     };
   }
 }
