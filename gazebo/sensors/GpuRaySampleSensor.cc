@@ -1,0 +1,843 @@
+/*
+ * Copyright (C) 2012 Open Source Robotics Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+*/
+#include <cmath>
+#include <boost/algorithm/string.hpp>
+#include <ignition/common/Profiler.hh>
+#include <functional>
+#include <utility>
+#include <ignition/math.hh>
+#include <ignition/math/Helpers.hh>
+#include "gazebo/physics/World.hh"
+#include "gazebo/physics/Entity.hh"
+#include "gazebo/physics/Model.hh"
+#include "gazebo/physics/PhysicsEngine.hh"
+
+#include "gazebo/common/Exception.hh"
+#include "gazebo/common/Events.hh"
+
+#include "gazebo/transport/transport.hh"
+
+#include "gazebo/rendering/Scene.hh"
+#include "gazebo/rendering/RenderingIface.hh"
+#include "gazebo/rendering/RenderEngine.hh"
+#include "gazebo/rendering/GpuLaser.hh"
+
+#include "gazebo/sensors/Noise.hh"
+#include "gazebo/sensors/SensorFactory.hh"
+#include "gazebo/sensors/GpuRaySampleSensorPrivate.hh"
+#include "gazebo/sensors/GpuRaySampleSensor.hh"
+
+using namespace gazebo;
+using namespace sensors;
+
+GZ_REGISTER_STATIC_SENSOR("gpu_sample_ray", GpuRaySampleSensor)
+
+void RegisterGpuSampleLidarSensor()
+{
+  SensorFactory::RegisterSensor("gpu_sample_lidar", NewGpuRaySampleSensor);
+}
+
+//////////////////////////////////////////////////
+GpuRaySampleSensor::GpuRaySampleSensor()
+: GpuRaySensor()//, Sensor(sensors::IMAGE),
+  //dataPtr(new GpuRaySampleSensorPrivate)
+{
+  this->dataPtr->rendered = false;
+  this->active = false;
+  /*this->connections.push_back(
+      event::Events::ConnectRender(
+        std::bind(&GpuRaySensor::Render, this)));*/
+}
+
+//////////////////////////////////////////////////
+GpuRaySampleSensor::~GpuRaySampleSensor()
+{
+  this->Fini();
+}
+#if 0
+//////////////////////////////////////////////////
+std::string GpuRaySampleSensor::Topic() const
+{
+  std::string topicName = "~/";
+  topicName += this->ParentName() + "/" + this->Name() + "/scan";
+  boost::replace_all(topicName, "::", "/");
+
+  return topicName;
+}
+#endif
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::Load(const std::string &_worldName, sdf::ElementPtr _sdf)
+{
+  GpuRaySensor::Load(_worldName, _sdf);
+  // load csv file?
+#if 0
+  // useStrictRate is set in Sensor::Load()
+  if (GpuRaySampleSensor::useStrictRate)
+  {
+    this->connections.push_back(
+        event::Events::ConnectPreRenderEnded(
+          boost::bind(&GpuRaySampleSensor::PrerenderEnded, this)));
+  }
+#endif
+}
+#if 0
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::Load(const std::string &_worldName)
+{
+  Sensor::Load(_worldName);
+  GpuRaySensor::Load(_worldName);
+
+  // useStrictRate is set in Sensor::Load()
+  if (GpuRaySampleSensor::useStrictRate)
+  {
+    this->connections.push_back(
+        event::Events::ConnectPreRenderEnded(
+          boost::bind(&GpuRaySampleSensor::PrerenderEnded, this)));
+  }
+
+  this->dataPtr->scanPub =
+    this->node->Advertise<msgs::LaserScanStamped>(this->Topic(), 50);
+
+  sdf::ElementPtr rayElem = this->sdf->GetElement("ray");
+  this->dataPtr->scanElem = rayElem->GetElement("scan");
+  this->dataPtr->horzElem = this->dataPtr->scanElem->GetElement("horizontal");
+  this->dataPtr->rangeElem = rayElem->GetElement("range");
+
+  if (this->dataPtr->scanElem->HasElement("vertical"))
+    this->dataPtr->vertElem = this->dataPtr->scanElem->GetElement("vertical");
+
+  this->dataPtr->horzRayCount = this->RayCount();
+  this->dataPtr->vertRayCount = this->VerticalRayCount();
+
+  if (this->dataPtr->horzRayCount == 0 || this->dataPtr->vertRayCount == 0)
+  {
+    gzthrow("GpuRaySampleSensor: Image has 0 size!");
+  }
+
+  this->dataPtr->horzRangeCount = this->RangeCount();
+  this->dataPtr->vertRangeCount = this->VerticalRangeCount();
+
+  this->dataPtr->rangeMin = this->RangeMin();
+  this->dataPtr->rangeMax = this->RangeMax();
+
+  // Handle noise model settings.
+  if (rayElem->HasElement("noise"))
+  {
+    this->noises[GPU_RAY_NOISE] =
+        NoiseFactory::NewNoiseModel(rayElem->GetElement("noise"),
+        this->Type());
+  }
+
+  this->dataPtr->parentEntity =
+    this->world->EntityByName(this->ParentName());
+
+  GZ_ASSERT(this->dataPtr->parentEntity != nullptr,
+      "Unable to get the parent entity.");
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::Init()
+{
+  if (rendering::RenderEngine::Instance()->GetRenderPathType() ==
+      rendering::RenderEngine::NONE)
+  {
+    gzerr << "Unable to create GpuRaySampleSensor. Rendering is disabled.\n";
+    return;
+  }
+
+  std::string worldName = this->world->Name();
+
+  if (!worldName.empty())
+  {
+    this->scene = rendering::get_scene(worldName);
+
+    if (!this->scene)
+      this->scene = rendering::create_scene(worldName, false, true);
+
+    if (!this->scene)
+    {
+      gzerr << "Unable to create gpu laser sensor: no scene\n";
+      return;
+    }
+    this->dataPtr->laserCam = this->scene->CreateGpuSampleLaser(
+        this->sdf->Get<std::string>("name"), false);
+
+    if (!this->dataPtr->laserCam)
+    {
+      gzerr << "Unable to create gpu  sample laser sensor\n";
+      return;
+    }
+    this->dataPtr->laserCam->SetCaptureData(true);
+
+    // initialize GpuLaser from sdf
+    // assume horizontal sweep (rotation around z axis) like cpu ray sensor
+    this->dataPtr->laserCam->SetIsHorizontal(true);
+
+    this->dataPtr->laserCam->SetNearClip(this->RangeMin());
+    this->dataPtr->laserCam->SetFarClip(this->RangeMax());
+
+    // horizontal laser setup
+    double hfovTotal = (this->AngleMax() - this->AngleMin()).Radian();
+
+    if (hfovTotal > 2 * M_PI)
+    {
+      hfovTotal = 2 * M_PI;
+      gzwarn << "Horizontal FOV for GPU laser is capped at 360 degrees.\n";
+    }
+
+    this->dataPtr->laserCam->SetHorzHalfAngle(this->HorzHalfAngle());
+
+    // we use a fixed square camera FOV
+    constexpr double hfovPerCamera = M_PI_2;
+    this->dataPtr->laserCam->SetHorzFOV(hfovPerCamera);
+
+    // vertical laser setup
+    double vfovTotal;
+
+    if (this->dataPtr->vertRayCount > 1)
+    {
+      vfovTotal = (this->VerticalAngleMax() - this->VerticalAngleMin()).Radian();
+    }
+    else
+    {
+      vfovTotal = 0;
+
+      if (this->VerticalAngleMax() != this->VerticalAngleMin())
+      {
+        gzwarn << "Only one vertical ray but vertical min. and max. angle "
+                  "are not equal. Half angle between min. and max. is used.\n";
+        const double vertHalfAngle = this->VertHalfAngle();
+        this->SetVerticalAngleMin(vertHalfAngle);
+        this->SetVerticalAngleMax(vertHalfAngle);
+      }
+    }
+
+    if (vfovTotal > M_PI)
+    {
+      vfovTotal = M_PI;
+      gzwarn << "Vertical FOV for GPU laser is capped at 180 degrees.\n";
+    }
+
+    constexpr double vfovPerCamera = M_PI_2;
+    this->dataPtr->laserCam->SetVertFOV(vfovPerCamera);
+    this->dataPtr->laserCam->SetVertHalfAngle(this->VertHalfAngle());
+
+    // unused by this implementation, but keep for backwards compatibility
+    const double cosHorzFov =
+        2 * atan(tan(hfovPerCamera / 2) / cos(vfovTotal / 2));
+    const double cosVertFov =
+        2 * atan(tan(vfovTotal / 2) / cos(hfovPerCamera / 2));
+    this->dataPtr->laserCam->SetCosHorzFOV(cosHorzFov);
+    this->dataPtr->laserCam->SetCosVertFOV(cosVertFov);
+
+    // internal camera has fixed aspect ratio of one
+    constexpr double cameraAspectRatio = 1;
+    this->dataPtr->laserCam->SetRayCountRatio(cameraAspectRatio);
+
+    // If vertical ray is not 1 adjust horizontal and vertical
+    // ray count to maintain aspect ratio
+    if (this->dataPtr->vertRayCount > 1)
+    {
+      this->dataPtr->rangeCountRatio = cameraAspectRatio;
+    }
+
+    // take ranges per radian of FOV as a guideline for camera resolution
+    double rangesPerFov = 0;
+    if (vfovTotal > 0)
+    {
+      rangesPerFov = std::max(rangesPerFov, this->VerticalRangeCount() / vfovTotal);
+    }
+    if (hfovTotal > 0)
+    {
+      rangesPerFov = std::max(rangesPerFov, this->RangeCount() / hfovTotal);
+    }
+
+    // ranges per camera (which has 90 deg FOV)
+    const unsigned int ranges = static_cast<int>(rangesPerFov * M_PI_2);
+
+    // ensure minimal texture size (to mitigate issues with stepped point cloud
+    // especially for shallow angles of incidence)
+    constexpr unsigned int min_texture_size = 1024;
+    constexpr unsigned int max_texture_size = 8192;
+    const unsigned int camera_resolution = std::min(std::max(ranges, min_texture_size), max_texture_size);
+    gzerr << "Texture Resolution: " << camera_resolution << "\n";
+  
+    // Initialize camera sdf for GpuLaser
+    this->dataPtr->cameraElem.reset(new sdf::Element);
+    sdf::initFile("camera.sdf", this->dataPtr->cameraElem);
+
+    this->dataPtr->cameraElem->GetElement("horizontal_fov")->Set(M_PI_2);
+
+    sdf::ElementPtr ptr = this->dataPtr->cameraElem->GetElement("image");
+    ptr->GetElement("width")->Set(camera_resolution);
+    ptr->GetElement("height")->Set(camera_resolution);
+    ptr->GetElement("format")->Set("FLOAT16");
+
+    ptr = this->dataPtr->cameraElem->GetElement("clip");
+    ptr->GetElement("near")->Set(this->dataPtr->laserCam->NearClip());
+    ptr->GetElement("far")->Set(this->dataPtr->laserCam->FarClip());
+
+    // Load camera sdf for GpuLaser
+    this->dataPtr->laserCam->Load(this->dataPtr->cameraElem);
+
+    // initialize GpuLaser
+    this->dataPtr->laserCam->Init();
+    this->dataPtr->laserCam->SetRangeCount(
+        this->RangeCount(),
+        this->VerticalRangeCount());
+    this->dataPtr->laserCam->SetClipDist(static_cast<float>(this->RangeMin()), static_cast<float>(this->RangeMax()));
+
+    // create sets of angles and initialize cubemap
+    // eventually, this should also be able to handle irregular spaced rays
+    // but that would require changes to the SDFormat definition of a ray sensor.
+    // Note: The order of the angles in the two sets matters as the laser
+    // readings will be returned in the same order!
+    {
+      std::set<double> azimuth_angles;
+      const double azimuth_angle_increment = hfovTotal / (this->dataPtr->horzRangeCount - 1);
+      double azimuth = this->AngleMin().Radian();
+      for (unsigned int i = 0; i < this->dataPtr->horzRangeCount; i++)
+      {
+        azimuth_angles.insert(azimuth);
+        azimuth += azimuth_angle_increment;
+      }
+
+      std::set<double> elevation_angles;
+      const double elevation_angle_increment = vfovTotal / (this->dataPtr->vertRangeCount - 1);
+      double elevation = this->VerticalAngleMin().Radian();
+      for (unsigned int i = 0; i < this->dataPtr->vertRangeCount; i++)
+      {
+        elevation_angles.insert(elevation);
+        elevation += elevation_angle_increment;
+      }
+
+      this->dataPtr->laserCam->InitMapping(azimuth_angles, elevation_angles);
+    }
+
+    this->dataPtr->laserCam->CreateLaserTexture(
+        this->ScopedName() + "_RttTex_Laser");
+    this->dataPtr->laserCam->CreateRenderTexture(
+        this->ScopedName() + "_RttTex_Image");
+    this->dataPtr->laserCam->SetWorldPose(this->pose);
+    this->dataPtr->laserCam->AttachToVisual(this->ParentId(), true, 0, 0);
+
+    this->dataPtr->laserMsg.mutable_scan()->set_frame(this->ParentName());
+  }
+  else
+    gzerr << "No world name\n";
+
+  // Disable clouds and moon on server side until fixed and also to improve
+  // performance
+  this->scene->SetSkyXMode(rendering::Scene::GZ_SKYX_ALL &
+      ~rendering::Scene::GZ_SKYX_CLOUDS &
+      ~rendering::Scene::GZ_SKYX_MOON);
+
+  Sensor::Init();
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::Fini()
+{
+  this->dataPtr->scanPub.reset();
+
+  if (this->dataPtr->laserCam)
+  {
+    this->scene->RemoveCamera(this->dataPtr->laserCam->Name());
+  }
+
+  this->dataPtr->laserCam.reset();
+
+  Sensor::Fini();
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::SetActive(bool _value)
+{
+  // If this sensor is reactivated
+  if (GpuRaySampleSensor::useStrictRate && _value && !this->IsActive())
+  {
+    // the next rendering time must be reset to ensure it is properly
+    // computed by GpuRaySampleSensor::NeedsUpdate.
+    this->dataPtr->nextRenderingTime = std::numeric_limits<double>::quiet_NaN();
+  }
+  Sensor::SetActive(_value);
+}
+
+//////////////////////////////////////////////////
+bool GpuRaySampleSensor::NeedsUpdate()
+{
+  if (GpuRaySampleSensor::useStrictRate)
+  {
+    double simTime;
+    if (this->scene)
+      simTime = this->scene->SimTime().Double();
+    else
+      simTime = this->world->SimTime().Double();
+
+    if (simTime < this->lastMeasurementTime.Double())
+    {
+      // Rendering sensors also set the lastMeasurementTime variable in Render()
+      // and lastUpdateTime in Sensor::Update based on Scene::SimTime() which
+      // could be outdated when the world is reset. In this case reset
+      // the variables back to 0.
+      this->ResetLastUpdateTime();
+      return false;
+    }
+
+    double dt = this->world->Physics()->GetMaxStepSize();
+
+    // If next rendering time is not set yet
+    if (std::isnan(this->dataPtr->nextRenderingTime))
+    {
+      if (this->updatePeriod == 0
+          || (simTime > 0.0 &&
+          std::abs(std::fmod(simTime, this->updatePeriod.Double())) < dt))
+      {
+        this->dataPtr->nextRenderingTime = simTime;
+        return true;
+      }
+      else
+      {
+        return false;
+      }
+    }
+
+    if (simTime > this->dataPtr->nextRenderingTime + dt)
+      return true;
+
+    // Trigger on the tick the closest from the targeted rendering time
+    return (ignition::math::lessOrNearEqual(
+          std::abs(simTime - this->dataPtr->nextRenderingTime), dt / 2.0));
+  }
+  else
+  {
+    return Sensor::NeedsUpdate();
+  }
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::Update(bool _force)
+{
+  Sensor::Update(_force);
+}
+
+//////////////////////////////////////////////////
+event::ConnectionPtr GpuRaySampleSensor::ConnectNewLaserFrame(
+  std::function<void(const float *, unsigned int, unsigned int, unsigned int,
+  const std::string &)> _subscriber)
+{
+  return this->dataPtr->laserCam->ConnectNewLaserFrame(_subscriber);
+}
+
+//////////////////////////////////////////////////
+bool GpuRaySampleSensor::IsHorizontal() const
+{
+  return this->dataPtr->laserCam->IsHorizontal();
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::HorzFOV() const
+{
+  return this->dataPtr->laserCam->HorzFOV();
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::CosHorzFOV() const
+{
+  return this->dataPtr->laserCam->CosHorzFOV();
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::VertFOV() const
+{
+  return this->dataPtr->laserCam->VertFOV();
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::CosVertFOV() const
+{
+  return this->dataPtr->laserCam->CosVertFOV();
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::RayCountRatio() const
+{
+  return this->dataPtr->laserCam->RayCountRatio();
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::RangeCountRatio() const
+{
+  return this->dataPtr->rangeCountRatio;
+}
+
+//////////////////////////////////////////////////
+ignition::math::Angle GpuRaySampleSensor::AngleMin() const
+{
+  return this->dataPtr->horzElem->Get<double>("min_angle");
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::SetAngleMin(double _angle)
+{
+  this->dataPtr->horzElem->GetElement("min_angle")->Set(_angle);
+}
+
+//////////////////////////////////////////////////
+ignition::math::Angle GpuRaySampleSensor::AngleMax() const
+{
+  return this->dataPtr->horzElem->Get<double>("max_angle");
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::SetAngleMax(double _angle)
+{
+  this->dataPtr->horzElem->GetElement("max_angle")->Set(_angle);
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::RangeMin() const
+{
+  return this->dataPtr->rangeElem->Get<double>("min");
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::RangeMax() const
+{
+  return this->dataPtr->rangeElem->Get<double>("max");
+}
+
+/////////////////////////////////////////////////
+double GpuRaySampleSensor::AngleResolution() const
+{
+  return (this->AngleMax() - this->AngleMin()).Radian() /
+    (this->RangeCount()-1);
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::RangeResolution() const
+{
+  return this->dataPtr->rangeElem->Get<double>("resolution");
+}
+
+//////////////////////////////////////////////////
+int GpuRaySampleSensor::RayCount() const
+{
+  return this->dataPtr->horzElem->Get<unsigned int>("samples");
+}
+
+//////////////////////////////////////////////////
+int GpuRaySampleSensor::RangeCount() const
+{
+  return static_cast<int>(this->RayCount() * this->dataPtr->horzElem->Get<double>("resolution"));
+}
+
+//////////////////////////////////////////////////
+int GpuRaySampleSensor::VerticalRayCount() const
+{
+  if (this->dataPtr->scanElem->HasElement("vertical"))
+    return this->dataPtr->vertElem->Get<unsigned int>("samples");
+  else
+    return 1;
+}
+
+//////////////////////////////////////////////////
+int GpuRaySampleSensor::VerticalRangeCount() const
+{
+  if (this->dataPtr->scanElem->HasElement("vertical"))
+  {
+    const int rows = static_cast<int>(this->VerticalRayCount() *
+          this->dataPtr->vertElem->Get<double>("resolution"));
+    if (rows > 1)
+      return rows;
+    else
+      return 1;
+  }
+  else
+    return 1;
+}
+
+//////////////////////////////////////////////////
+ignition::math::Angle GpuRaySampleSensor::VerticalAngleMin() const
+{
+  if (this->dataPtr->scanElem->HasElement("vertical"))
+    return this->dataPtr->vertElem->Get<double>("min_angle");
+  else
+    return ignition::math::Angle(0);
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::SetVerticalAngleMin(const double _angle)
+{
+  if (this->dataPtr->scanElem->HasElement("vertical"))
+    this->dataPtr->vertElem->GetElement("min_angle")->Set(_angle);
+}
+
+//////////////////////////////////////////////////
+ignition::math::Angle GpuRaySampleSensor::VerticalAngleMax() const
+{
+  if (this->dataPtr->scanElem->HasElement("vertical"))
+    return this->dataPtr->vertElem->Get<double>("max_angle");
+  else
+    return ignition::math::Angle(0);
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::VerticalAngleResolution() const
+{
+  return (this->VerticalAngleMax() - this->VerticalAngleMin()).Radian() /
+    (this->VerticalRangeCount()-1);
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::SetVerticalAngleMax(const double _angle)
+{
+  if (this->dataPtr->scanElem->HasElement("vertical"))
+    this->dataPtr->vertElem->GetElement("max_angle")->Set(_angle);
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::Ranges(std::vector<double> &_ranges) const
+{
+  std::lock_guard<std::mutex> lock(this->dataPtr->mutex);
+
+  _ranges.resize(this->dataPtr->laserMsg.scan().ranges_size());
+  memcpy(&_ranges[0], this->dataPtr->laserMsg.scan().ranges().data(),
+         sizeof(_ranges[0]) * this->dataPtr->laserMsg.scan().ranges_size());
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::Range(const int _index) const
+{
+  std::lock_guard<std::mutex> lock(this->dataPtr->mutex);
+  if (this->dataPtr->laserMsg.scan().ranges_size() == 0)
+  {
+    gzwarn << "ranges not constructed yet (zero sized)\n";
+    return 0.0;
+  }
+  if (_index < 0 || _index > this->dataPtr->laserMsg.scan().ranges_size())
+  {
+    gzerr << "Invalid range index[" << _index << "]\n";
+    return 0.0;
+  }
+
+  return this->dataPtr->laserMsg.scan().ranges(_index);
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::Retro(const int /*_index*/) const
+{
+  return 0.0;
+}
+
+//////////////////////////////////////////////////
+int GpuRaySampleSensor::Fiducial(const unsigned int /*_index*/) const
+{
+  return -1;
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::PrerenderEnded()
+{
+  if (GpuRaySampleSensor::useStrictRate && this->dataPtr->laserCam && this->IsActive() &&
+      this->NeedsUpdate())
+  {
+    // compute next rendering time, take care of the case where period is zero.
+    double dt;
+    if (this->updatePeriod <= 0.0)
+      dt = this->world->Physics()->GetMaxStepSize();
+    else
+      dt = this->updatePeriod.Double();
+    this->dataPtr->nextRenderingTime += dt;
+
+    this->dataPtr->renderNeeded = true;
+    this->lastMeasurementTime = this->scene->SimTime();
+  }
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::Render()
+{
+  IGN_PROFILE("sensors::GpuRaySampleSensor::Render");
+  if (GpuRaySampleSensor::useStrictRate)
+  {
+    if (!this->dataPtr->renderNeeded)
+      return;
+
+    this->dataPtr->laserCam->Render();
+    this->dataPtr->rendered = true;
+    this->dataPtr->renderNeeded = false;
+  }
+  else
+  {
+    if (!this->dataPtr->laserCam || !this->IsActive() || !this->NeedsUpdate())
+      return;
+
+    this->lastMeasurementTime = this->scene->SimTime();
+
+    this->dataPtr->laserCam->Render();
+    this->dataPtr->rendered = true;
+  }
+}
+
+//////////////////////////////////////////////////
+bool GpuRaySampleSensor::UpdateImpl(const bool /*_force*/)
+{
+  IGN_PROFILE("GpuRaySampleSensor::UpdateImpl");
+
+  if (!this->dataPtr->rendered)
+    return false;
+  IGN_PROFILE_BEGIN("PostRender");
+  this->dataPtr->laserCam->PostRender();
+  IGN_PROFILE_END();
+
+  IGN_PROFILE_BEGIN("fillarray");
+
+  std::lock_guard<std::mutex> lock(this->dataPtr->mutex);
+
+  msgs::Set(this->dataPtr->laserMsg.mutable_time(),
+      this->lastMeasurementTime);
+
+  msgs::LaserScan *scan = this->dataPtr->laserMsg.mutable_scan();
+
+  // Store the latest laser scans into laserMsg
+  msgs::Set(scan->mutable_world_pose(),
+      this->pose + this->dataPtr->parentEntity->WorldPose());
+  scan->set_angle_min(this->AngleMin().Radian());
+  scan->set_angle_max(this->AngleMax().Radian());
+  scan->set_angle_step(this->AngleResolution());
+  scan->set_count(this->RangeCount());
+
+  scan->set_vertical_angle_min(this->VerticalAngleMin().Radian());
+  scan->set_vertical_angle_max(this->VerticalAngleMax().Radian());
+  scan->set_vertical_angle_step(this->VerticalAngleResolution());
+  scan->set_vertical_count(this->dataPtr->vertRangeCount);
+
+  scan->set_range_min(this->dataPtr->rangeMin);
+  scan->set_range_max(this->dataPtr->rangeMax);
+
+  const int numRays = static_cast<int>(this->dataPtr->vertRangeCount *
+    this->dataPtr->horzRangeCount);
+  if (scan->ranges_size() != numRays)
+  {
+    // gzdbg << "Size mismatch; allocating memory\n";
+    scan->clear_ranges();
+    scan->clear_intensities();
+    for (int i = 0; i < numRays; ++i)
+    {
+      scan->add_ranges(ignition::math::NAN_F);
+      scan->add_intensities(ignition::math::NAN_F);
+    }
+  }
+
+  auto dataIter = this->dataPtr->laserCam->LaserDataBegin();
+  auto dataEnd = this->dataPtr->laserCam->LaserDataEnd();
+  for (int i = 0; dataIter != dataEnd; ++dataIter, ++i)
+  {
+    const rendering::GpuLaserData data = *dataIter;
+    double range = data.range;
+    double intensity = data.intensity;
+
+    // Mask ranges outside of min/max to +/- inf, as per REP 117
+    if (range >= this->dataPtr->rangeMax)
+    {
+      range = ignition::math::INF_D;
+    }
+    else if (range <= this->dataPtr->rangeMin)
+    {
+      range = -ignition::math::INF_D;
+    }
+    else if (this->noises.find(GPU_RAY_NOISE) != this->noises.end())
+    {
+      range = this->noises[GPU_RAY_NOISE]->Apply(range);
+      range = ignition::math::clamp(range,
+          this->dataPtr->rangeMin, this->dataPtr->rangeMax);
+    }
+
+    range = ignition::math::isnan(range) ? this->dataPtr->rangeMax : range;
+    scan->set_ranges(i, range);
+    scan->set_intensities(i, intensity);
+  }
+
+  if (this->dataPtr->scanPub && this->dataPtr->scanPub->HasConnections())
+    this->dataPtr->scanPub->Publish(this->dataPtr->laserMsg);
+
+  this->dataPtr->rendered = false;
+  IGN_PROFILE_END();
+  return true;
+}
+
+//////////////////////////////////////////////////
+bool GpuRaySampleSensor::IsActive() const
+{
+  return Sensor::IsActive() ||
+    (this->dataPtr->scanPub && this->dataPtr->scanPub->HasConnections());
+}
+
+//////////////////////////////////////////////////
+rendering::GpuLaserPtr GpuRaySampleSensor::LaserCamera() const
+{
+  return this->dataPtr->laserCam;
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::NextRequiredTimestamp() const
+{
+  if (GpuRaySampleSensor::useStrictRate)
+  {
+    if (!ignition::math::equal(this->updatePeriod.Double(), 0.0))
+      return this->dataPtr->nextRenderingTime;
+    else
+      return std::numeric_limits<double>::quiet_NaN();
+  }
+  else
+  {
+    return Sensor::NextRequiredTimestamp();
+  }
+}
+
+//////////////////////////////////////////////////
+void GpuRaySampleSensor::ResetLastUpdateTime()
+{
+  Sensor::ResetLastUpdateTime();
+  if (GpuRaySampleSensor::useStrictRate)
+    this->dataPtr->nextRenderingTime = std::numeric_limits<double>::quiet_NaN();
+}
+
+//////////////////////////////////////////////////
+unsigned int GpuRaySampleSensor::CameraCount() const
+{
+  return this->dataPtr->laserCam->CameraCount();
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::HorzHalfAngle() const
+{
+  return (this->AngleMax() + this->AngleMin()).Radian() / 2.0;
+}
+
+//////////////////////////////////////////////////
+double GpuRaySampleSensor::VertHalfAngle() const
+{
+  return (this->VerticalAngleMax() + this->VerticalAngleMin()).Radian() / 2.0;
+}
+#endif
+
+void GpuRaySampleSensor::SetSamples(const std::vector<Sample> samples)
+{
+  this->samples = samples;
+}

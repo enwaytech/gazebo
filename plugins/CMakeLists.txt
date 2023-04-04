@@ -98,6 +98,7 @@ set (plugins_single_header
   ForceTorquePlugin
   GimbalSmall2dPlugin
   GpuRayPlugin
+  GpuRaySamplePlugin
   HarnessPlugin
   HeightmapLODPlugin
   ImuSensorPlugin

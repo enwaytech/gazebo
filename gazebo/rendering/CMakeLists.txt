@@ -30,6 +30,7 @@ set (sources
   DynamicRenderable.cc
   FPSViewController.cc
   GpuLaser.cc
+  GpuSampleLaser.cc
   Grid.cc
   Heightmap.cc
   InertiaVisual.cc
@@ -98,6 +99,7 @@ set (headers
   GpuLaserCubeFace.hh
   GpuLaserDataIterator.hh
   GpuLaserDataIteratorImpl.hh
+  GpuSampleLaser.hh
   Grid.hh
   Heightmap.hh
   InertiaVisual.hh

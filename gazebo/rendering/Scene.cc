@@ -55,6 +55,7 @@
 #include "gazebo/rendering/WideAngleCamera.hh"
 #include "gazebo/rendering/DepthCamera.hh"
 #include "gazebo/rendering/GpuLaser.hh"
+#include "gazebo/rendering/GpuSampleLaser.hh"
 #include "gazebo/rendering/Grid.hh"
 #include "gazebo/rendering/OriginVisual.hh"
 #include "gazebo/rendering/RFIDVisual.hh"
@@ -675,6 +676,16 @@ GpuLaserPtr Scene::CreateGpuLaser(const std::string &_name,
   return camera;
 }
 
+//////////////////////////////////////////////////
+GpuSampleLaserPtr Scene::CreateGpuSampleLaser(const std::string &_name,
+                                        const bool _autoRender)
+{
+  GpuSampleLaserPtr camera(new GpuSampleLaser(this->dataPtr->name + "::" + _name,
+        shared_from_this(), _autoRender));
+  this->dataPtr->cameras.push_back(camera);
+
+  return camera;
+}
 //////////////////////////////////////////////////
 uint32_t Scene::CameraCount() const
 {
@@ -2249,7 +2260,7 @@ bool Scene::ProcessSensorMsg(ConstSensorPtr &_msg)
     return true;
 
   if ((_msg->type() == "lidar" || _msg->type() == "gpu_lidar" ||
-       _msg->type() == "ray" || _msg->type() == "gpu_ray") && _msg->visualize()
+       _msg->type() == "ray" || _msg->type() == "gpu_ray" || _msg->type() == "gpu_sample_ray") && _msg->visualize()
       && !_msg->topic().empty())
   {
     std::string rayVisualName = _msg->parent() + "::" + _msg->name();

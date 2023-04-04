@@ -216,6 +216,15 @@ namespace gazebo
       public: GpuLaserPtr CreateGpuLaser(const std::string &_name,
                                          const bool _autoRender = true);
 
+      /// \brief Create sample laser that generates data from rendering.
+      /// \param[in] _name Name of the new laser.
+      /// \param[in] _autoRender True to allow Gazebo to automatically
+      /// render the camera. This should almost always be true.
+      /// \return Pointer to the new laser.
+      public: GpuSampleLaserPtr CreateGpuSampleLaser(const std::string &_name,
+                                                     const bool _autoRender = true);
+
+
       /// \brief Get the number of cameras in this scene
       /// \return Number of cameras.
       public: uint32_t CameraCount() const;

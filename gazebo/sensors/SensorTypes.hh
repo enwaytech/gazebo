@@ -42,6 +42,7 @@ namespace gazebo
     class ContactSensor;
     class ImuSensor;
     class GpuRaySensor;
+    class GpuRaySampleSensor;
     class RFIDSensor;
     class RFIDTag;
     class SonarSensor;
@@ -98,6 +99,10 @@ namespace gazebo
     /// \def GpuRaySensorPtr
     /// \brief Shared pointer to GpuRaySensor
     typedef std::shared_ptr<GpuRaySensor> GpuRaySensorPtr;
+
+    /// \def GpuRaySampleSensorPtr
+    /// \brief Shared pointer to GpuRaySampleSensor
+    typedef std::shared_ptr<GpuRaySampleSensor> GpuRaySampleSensorPtr;
 
     /// \def RFIDSensorPtr
     /// \brief Shared pointer to RFIDSensor

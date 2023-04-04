@@ -14,8 +14,8 @@
  * limitations under the License.
  *
 */
-#ifndef _GAZEBO_RENDERING_GPULASER_HH_
-#define _GAZEBO_RENDERING_GPULASER_HH_
+#ifndef _GAZEBO_RENDERING_GPUSAMPLELASER_HH_
+#define _GAZEBO_RENDERING_GPUSAMPLELASER_HH_
 
 #include <map>
 #include <memory>
@@ -25,10 +25,11 @@
 
 #include <sdf/sdf.hh>
 
-#include "gazebo/rendering/ogre_gazebo.h"
 #include "gazebo/rendering/Camera.hh"
+#include "gazebo/rendering/GpuLaser.hh"
 #include "gazebo/rendering/GpuLaserCubeFace.hh"
 #include "gazebo/rendering/GpuLaserDataIterator.hh"
+#include "gazebo/rendering/ogre_gazebo.h"
 #include "gazebo/rendering/RenderTypes.hh"
 #include "gazebo/util/system.hh"
 
@@ -44,26 +45,27 @@ namespace gazebo
   namespace rendering
   {
     // Forward declare private data.
-    class GpuLaserPrivate;
+    //class GpuLaserPrivate;
+    //class GpuLaser;
 
     /// \addtogroup gazebo_rendering Rendering
     /// \{
 
-    /// \class GpuLaser GpuLaser.hh rendering/rendering.hh
+    /// \class GpuSampleLaser GpuSampleLaser.hh rendering/rendering.hh
     /// \brief GPU based laser distance sensor
-    class GZ_RENDERING_VISIBLE GpuLaser
-      : public Camera, public Ogre::RenderObjectListener
+    class GZ_RENDERING_VISIBLE GpuSampleLaser
+      : public GpuLaser//, public Camera, public Ogre::RenderObjectListener
     {
       /// \brief Constructor
       /// \param[in] _namePrefix Unique prefix name for the camera.
       /// \param[in] _scene Scene that will contain the camera
       /// \param[in] _autoRender Almost everyone should leave this as true.
-      public: GpuLaser(const std::string &_namePrefix,
+      public: GpuSampleLaser(const std::string &_namePrefix,
           ScenePtr _scene, const bool _autoRender = true);
 
       /// \brief Destructor
-      public: ~GpuLaser() override;
-
+      public: ~GpuSampleLaser();
+#if 0
       // Documentation inherited
       public: void Load(sdf::ElementPtr _sdf) override;
 
@@ -292,7 +294,8 @@ namespace gazebo
 
       /// \internal
       /// \brief Pointer to private data.
-      protected: std::unique_ptr<GpuLaserPrivate> dataPtr;
+      private: std::unique_ptr<GpuLaserPrivate> dataPtr;
+#endif
     };
     /// \}
   }

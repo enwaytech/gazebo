@@ -14,8 +14,8 @@
  * limitations under the License.
  *
 */
-#ifndef _GAZEBO_SENSORS_GPURAYSENSOR_HH_
-#define _GAZEBO_SENSORS_GPURAYSENSOR_HH_
+#ifndef _GAZEBO_SENSORS_GPURAYSAMPLESENSOR_HH_
+#define _GAZEBO_SENSORS_GPURAYSAMPLESENSOR_HH_
 
 #include <memory>
 #include <string>
@@ -25,6 +25,7 @@
 #include <ignition/math/Pose3.hh>
 
 #include "gazebo/rendering/RenderTypes.hh"
+#include "gazebo/sensors/GpuRaySensor.hh"
 #include "gazebo/sensors/Sensor.hh"
 #include "gazebo/transport/TransportTypes.hh"
 #include "gazebo/util/system.hh"
@@ -35,10 +36,15 @@ namespace gazebo
   /// \brief Sensors namespace
   namespace sensors
   {
+    struct Sample
+    {
+      double azimuth;
+      double zenith;
+    };
     // Forward declare private data pointer.
-    class GpuRaySensorPrivate;
+    class GpuRaySampleSensorPrivate;
 
-    /// \class GpuRaySensor GpuRaySensor.hh sensors/sensors.hh
+    /// \class GpuRaySampleSensor GpuRaySampleSensor.hh sensors/sensors.hh
     /// \addtogroup gazebo_sensors
     /// \{
 
@@ -47,13 +53,13 @@ namespace gazebo
     /// This sensor cast rays into the world, tests for intersections, and
     /// reports the range to the nearest object.  It is used by ranging
     /// sensor models (e.g., sonars and scanning laser range finders).
-    class GZ_SENSORS_VISIBLE GpuRaySensor: public Sensor
+    class GZ_SENSORS_VISIBLE GpuRaySampleSensor: public GpuRaySensor
     {
       /// \brief Constructor
-      public: GpuRaySensor();
+      public: GpuRaySampleSensor();
 
       /// \brief Destructor
-      public: virtual ~GpuRaySensor();
+      public: virtual ~GpuRaySampleSensor();
 
       /// \brief Load the sensor with SDF parameters
       /// \param[in] _sdf SDF Sensor parameters
@@ -61,6 +67,10 @@ namespace gazebo
       public: virtual void Load(const std::string &_worldName,
                                 sdf::ElementPtr _sdf) override;
 
+      private: std::vector<Sample> samples;
+      public: void SetSamples(const std::vector<Sample> samples);
+
+#if 0
       /// \brief Load the sensor with default parameters
       /// \param[in] _worldName Name of world to load from
       public: virtual void Load(const std::string &_worldName) override;
@@ -275,7 +285,10 @@ namespace gazebo
 
       /// \internal
       /// \brief Private data pointer.
-      protected: std::unique_ptr<GpuRaySensorPrivate> dataPtr;
+
+      private: std::unique_ptr<GpuRaySampleSensorPrivate> dataPtr;
+#endif
+
     };
     /// \}
   }
