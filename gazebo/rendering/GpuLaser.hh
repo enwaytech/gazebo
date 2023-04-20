@@ -267,14 +267,15 @@ namespace gazebo
       /// \param[in] cube_face The cube face.
       private: virtual void SetUpRenderTarget(GpuLaserCubeFace &_cube_face);
 
+      /// \brief Save camera orientation
+      private: virtual void SaveCameraOrientation();
+
       /// \brief Applies the camera orientation offset by rotation in roll and yaw.
       /// \param[in] _setting The camera orientation offset to apply.
-      private: void ApplyCameraSetting(const GpuLaserCameraOrientationOffset &_setting);
+      private: void ApplyCameraOrientation(const GpuLaserCameraOrientationOffset &_setting);
 
-      /// \brief Inverse of GpuLaser::ApplyCameraSetting(): Reverts the given
-      /// camera orientation offset.
-      /// \param[in] _setting The camera orientation offset to revert.
-      private: void RevertCameraSetting(const GpuLaserCameraOrientationOffset &_setting);
+      /// \brief Restores the camera orientation
+      private: void RestoreCameraOrientation();
 
       /// \brief Horizontal half angle.
       protected: double horzHalfAngle;
@@ -322,6 +323,10 @@ namespace gazebo
       /// \internal
       /// \brief Pointer to private data.
       private: std::unique_ptr<GpuLaserPrivate> dataPtr;
+
+      /// \internal
+      /// \brief Camera orientation
+      protected: Ogre::Quaternion cameraOrientation;
     };
     /// \}
   }

@@ -424,9 +424,10 @@ void GpuLaser::RenderImpl()
 
   for (auto& [cubeFaceId, cubeFace] : this->dataPtr->cubeMapFaces)
   {
-    this->ApplyCameraSetting(cubeFace.cameraSetting);
+    this->SaveCameraOrientation();
+    this->ApplyCameraOrientation(cubeFace.cameraSetting);
     this->UpdateRenderTarget(cubeFace);
-    this->RevertCameraSetting(cubeFace.cameraSetting);
+    this->RestoreCameraOrientation();
   }
 
   sceneMgr->removeRenderObjectListener(this);
@@ -655,17 +656,23 @@ event::ConnectionPtr GpuLaser::ConnectNewLaserFrame(
 }
 
 //////////////////////////////////////////////////
-void GpuLaser::ApplyCameraSetting(const GpuLaserCameraOrientationOffset &_setting)
+void GpuLaser::SaveCameraOrientation()
+{
+  this->cameraOrientation = this->sceneNode->getOrientation();
+}
+
+//////////////////////////////////////////////////
+void GpuLaser::ApplyCameraOrientation(const GpuLaserCameraOrientationOffset &_setting)
 {
   this->sceneNode->roll(Ogre::Radian(static_cast<float>(_setting.azimuthOffset)));
   this->sceneNode->yaw(Ogre::Radian(static_cast<float>(_setting.elevationOffset)));
 }
 
 //////////////////////////////////////////////////
-void GpuLaser::RevertCameraSetting(const GpuLaserCameraOrientationOffset &_setting)
+void GpuLaser::RestoreCameraOrientation()
 {
-  this->sceneNode->yaw(Ogre::Radian(static_cast<float>(-_setting.elevationOffset)));
-  this->sceneNode->roll(Ogre::Radian(static_cast<float>(-_setting.azimuthOffset)));
+  this->sceneNode->setOrientation(this->cameraOrientation);
+  this->cameraOrientation = this->sceneNode->getOrientation();
 }
 
 //////////////////////////////////////////////////
