@@ -94,7 +94,7 @@ namespace gazebo
       public: DataIter LaserDataEnd() const;
 
       /// \brief Return a pointer to the laser data vector
-      public: std::vector<float>* LaserData() const;
+      public: const std::vector<float>& LaserData() const;
 
       /// \brief Connect to a laser frame signal
       /// \param[in] _subscriber Callback that is called when a new image is
@@ -210,13 +210,17 @@ namespace gazebo
       /// \param[in] _rayCountRatio ray count ratio (equivalent to aspect ratio)
       public: void SetRayCountRatio(const double _rayCountRatio);
 
-      /// \brief Gets if sensor is a sample sensor
-      /// \return True if sample sensor, false if not
+      /// \brief Sets if sensor is a sample sensor
       public: void SetIsSample(const bool _sampleSensor);
 
-      /// \brief Gets the sample size of the sensor
-      /// \return Number of samples
+      /// \brief Sets the sample size of the sensor
       public: void SetSampleSize(const unsigned int _sampleSize);
+
+      /// \brief Sets the fixed intensity value
+      public: void SetFixedIntensity(const float _intensity);
+
+      /// \brief Sets if the sensor should compute intensity or not
+      public: void SetComputeIntensity(const bool _computeIntensity);
 
       /// \brief Initializes the mapping of ray angles to cube map coordinates.
       /// Each combination of values (azimuth, elevation) corresponds to one
@@ -321,12 +325,18 @@ namespace gazebo
       protected: unsigned int sampleOffset;
 
       /// \internal
-      /// \brief Pointer to private data.
-      private: std::unique_ptr<GpuLaserPrivate> dataPtr;
-
-      /// \internal
       /// \brief Camera orientation
       protected: Ogre::Quaternion cameraOrientation;
+
+      /// \brief True if intensity should be computed, False if it should be set to fixed value
+      protected: bool computeIntensity;
+
+      /// \brief Fixed intensity
+      protected: float fixedIntensity;
+
+      /// \internal
+      /// \brief Pointer to private data.
+      private: std::unique_ptr<GpuLaserPrivate> dataPtr;
     };
     /// \}
   }

@@ -106,6 +106,12 @@ namespace gazebo
 
       /// \brief Path to load the csv of the samples
       public: std::string sampleFile;
+
+      /// \brief True if intensity is computed
+      public: bool computeIntensity = true;
+
+      /// \brief Fixed intensity value, used, if intensity is not computed
+      public: float fixedIntensity = 1.0f;
     };
   }
 }

@@ -110,9 +110,29 @@ void GpuRaySensor::Load(const std::string &_worldName)
   this->dataPtr->horzElem = this->dataPtr->scanElem->GetElement("horizontal");
   this->dataPtr->rangeElem = rayElem->GetElement("range");
 
+  if (this->sdf->HasElement("compute_intensity"))
+  {
+    this->dataPtr->computeIntensity = this->sdf->GetElement("compute_intensity")->Get<bool>();
+  }
+
+  if (this->sdf->HasElement("fixed_intensity"))
+  {
+    this->dataPtr->fixedIntensity = this->sdf->GetElement("fixed_intensity")->Get<float>();
+    if (ComputeIntensity())
+    {
+      gzwarn() << "The fixed intensity value will not be used, because the compute_intensity flag is enabled.\n";
+    }
+  }
+
   if (this->sdf->HasElement("sample_sensor"))
   {
     gzmsg << "Sample sensor function is activated for sensor\n";
+    if (ComputeIntensity())
+    {
+      gzerr << "Computing the intensity is not supported on a sample sensor.\n";
+      this->dataPtr->computeIntensity = false;
+    }
+
     this->dataPtr->isSampleSensor = this->sdf->GetElement("sample_sensor")->Get<bool>();
     this->dataPtr->sampleSize = this->sdf->GetElement("sample_size")->Get<unsigned int>();
     this->dataPtr->sampleFile = this->sdf->GetElement("sample_csv_file")->Get<std::string>();
@@ -277,17 +297,13 @@ void GpuRaySensor::Init()
       rangesPerFov = std::max(rangesPerFov, this->RangeCount() / hfovTotal);
     }
 
-    // ranges per camera (which has 90 deg FOV)
-    const unsigned int ranges = static_cast<int>(rangesPerFov * M_PI_2);
-
     // ensure minimal texture size (to mitigate issues with stepped point cloud
     // especially for shallow angles of incidence)
-    //constexpr unsigned int min_texture_size = 1024;
-    //const unsigned int camera_resolution = std::max(ranges, min_texture_size); //TODO GEORG:
-    unsigned int camera_resolution = 1024;
-    if (!IsSampleSensor())
+    unsigned int camera_resolution = std::max(this->RayCount() / 4, this->VerticalRayCount() / 2);
+
+    if (IsSampleSensor())
     {
-      camera_resolution = std::max(this->RayCount() / 4, this->VerticalRayCount() / 2);
+      camera_resolution = 1024;
     }
 
     // Initialize camera sdf for GpuLaser
@@ -300,13 +316,13 @@ void GpuRaySensor::Init()
     ptr->GetElement("width")->Set(camera_resolution);
     ptr->GetElement("height")->Set(camera_resolution);
 
-    if (IsSampleSensor())
+    if (ComputeIntensity())
     {
-      ptr->GetElement("format")->Set("R_FLOAT16");
+      ptr->GetElement("format")->Set("FLOAT32");
     }
     else
     {
-      ptr->GetElement("format")->Set("FLOAT32");
+      ptr->GetElement("format")->Set("R_FLOAT16");
     }
 
     ptr = this->dataPtr->cameraElem->GetElement("clip");
@@ -322,6 +338,10 @@ void GpuRaySensor::Init()
         this->RangeCount(),
         this->VerticalRangeCount());
     this->dataPtr->laserCam->SetClipDist(static_cast<float>(this->RangeMin()), static_cast<float>(this->RangeMax()));
+
+    this->dataPtr->laserCam->SetComputeIntensity(ComputeIntensity());
+    this->dataPtr->laserCam->SetFixedIntensity(FixedIntensity());
+
     if (!IsSampleSensor())
     {
       // create sets of angles and initialize cubemap
@@ -348,8 +368,16 @@ void GpuRaySensor::Init()
       }
 
       this->dataPtr->laserCam->InitMapping(azimuth_angles, elevation_angles);
-      this->dataPtr->laserCam->CreateLaserTexture(
-          this->ScopedName() + "_RttTex_Laser", Ogre::PF_FLOAT32_RGB);
+      if (ComputeIntensity())
+      {
+        this->dataPtr->laserCam->CreateLaserTexture(
+            this->ScopedName() + "_RttTex_Laser", Ogre::PF_FLOAT32_RGB);
+      }
+      else
+      {
+        this->dataPtr->laserCam->CreateLaserTexture(
+            this->ScopedName() + "_RttTex_Laser", Ogre::PF_FLOAT16_R);
+      }
     }
     else
     {
@@ -359,7 +387,7 @@ void GpuRaySensor::Init()
       gzmsg << "load sample csv file name: " << this->dataPtr->sampleFile << "\n";
 
       std::vector<std::vector<double>> samples;
-      if (!readCsvFile(this->dataPtr->sampleFile, samples)) {
+      if (!ReadCsvSampleFile(this->dataPtr->sampleFile, samples)) {
           gzthrow("GpuRaySensor: Can not load csv file!");
       }
 
@@ -785,7 +813,6 @@ bool GpuRaySensor::UpdateImpl(const bool /*_force*/)
   IGN_PROFILE_END();
 
   IGN_PROFILE_BEGIN("fillarray");
-
   std::lock_guard<std::mutex> lock(this->dataPtr->mutex);
   {
     if (!IsSampleSensor())
@@ -825,34 +852,61 @@ bool GpuRaySensor::UpdateImpl(const bool /*_force*/)
           scan->add_intensities(ignition::math::NAN_F);
         }
       }
-
-      auto dataIter = this->dataPtr->laserCam->LaserDataBegin();
-      auto dataEnd = this->dataPtr->laserCam->LaserDataEnd();
-      for (int i = 0; dataIter != dataEnd; ++dataIter, ++i)
+      if (ComputeIntensity())
       {
-        const rendering::GpuLaserData data = *dataIter;
-        double range = data.range;
-        double intensity = data.intensity;
+        auto dataIter = this->dataPtr->laserCam->LaserDataBegin();
+        auto dataEnd = this->dataPtr->laserCam->LaserDataEnd();
+        for (int i = 0; dataIter != dataEnd; ++dataIter, ++i)
+        {
+          const rendering::GpuLaserData data = *dataIter;
+          double range = data.range;
+          const double intensity = data.intensity;
 
-        // Mask ranges outside of min/max to +/- inf, as per REP 117
-        if (range >= this->dataPtr->rangeMax)
-        {
-          range = ignition::math::INF_D;
-        }
-        else if (range <= this->dataPtr->rangeMin)
-        {
-          range = -ignition::math::INF_D;
-        }
-        else if (this->noises.find(GPU_RAY_NOISE) != this->noises.end())
-        {
-          range = this->noises[GPU_RAY_NOISE]->Apply(range);
-          range = ignition::math::clamp(range,
-              this->dataPtr->rangeMin, this->dataPtr->rangeMax);
-        }
+          // Mask ranges outside of min/max to +/- inf, as per REP 117
+          if (range >= this->dataPtr->rangeMax)
+          {
+            range = ignition::math::INF_D;
+          }
+          else if (range <= this->dataPtr->rangeMin)
+          {
+            range = -ignition::math::INF_D;
+          }
+          else if (this->noises.find(GPU_RAY_NOISE) != this->noises.end())
+          {
+            range = this->noises[GPU_RAY_NOISE]->Apply(range);
+            range = ignition::math::clamp(range,
+                this->dataPtr->rangeMin, this->dataPtr->rangeMax);
+          }
 
-        range = ignition::math::isnan(range) ? this->dataPtr->rangeMax : range;
-        scan->set_ranges(i, range);
-        scan->set_intensities(i, intensity);
+          range = ignition::math::isnan(range) ? this->dataPtr->rangeMax : range;
+          scan->set_ranges(i, range);
+          scan->set_intensities(i, intensity);
+        }
+      }
+      else
+      {
+        const std::vector<float>& data = this->dataPtr->laserCam->LaserData();
+        for (unsigned int i = 0; i < data.size(); ++i)
+        {
+          double range = data.at(i);
+          if (range >= this->dataPtr->rangeMax)
+          {
+            range = ignition::math::INF_D;
+          }
+          else if (range <= this->dataPtr->rangeMin)
+          {
+            range = -ignition::math::INF_D;
+          }
+          else if (this->noises.find(GPU_RAY_NOISE) != this->noises.end())
+          {
+            range = this->noises[GPU_RAY_NOISE]->Apply(range);
+            range = ignition::math::clamp(range,
+                this->dataPtr->rangeMin, this->dataPtr->rangeMax);
+          }
+          range = ignition::math::isnan(range) ? this->dataPtr->rangeMax : range;
+          scan->set_ranges(i, range);
+          scan->set_intensities(i, FixedIntensity());
+        }
       }
 
       if (this->dataPtr->scanPub && this->dataPtr->scanPub->HasConnections())
@@ -898,14 +952,11 @@ bool GpuRaySensor::UpdateImpl(const bool /*_force*/)
         }
       }
 
-      // ToDo Georg replace!
-      std::vector<float>* data = this->dataPtr->laserCam->LaserData();
-      constexpr double fixed_intensity = 1.0;
-
+      const std::vector<float>& data = this->dataPtr->laserCam->LaserData();
       constexpr unsigned int skip = 3;
-      for (unsigned int i = 0; i < data->size() / skip; ++i)
+      for (unsigned int i = 0; i < data.size() / skip; ++i)
       {
-        double range = data->at(i * skip);
+        double range = data.at(i * skip);
         if (range >= this->dataPtr->rangeMax)
         {
           range = ignition::math::INF_D;
@@ -920,11 +971,11 @@ bool GpuRaySensor::UpdateImpl(const bool /*_force*/)
           range = ignition::math::clamp(range,
               this->dataPtr->rangeMin, this->dataPtr->rangeMax);
         }
-        double azimuth = data->at(i * skip + 1);
-        double zenith = data->at(i * skip + 2);
+        double azimuth = data.at(i * skip + 1);
+        double zenith = data.at(i * skip + 2);
         range = ignition::math::isnan(range) ? this->dataPtr->rangeMax : range;
         scan->set_ranges(i, range);
-        scan->set_intensities(i, fixed_intensity);
+        scan->set_intensities(i, FixedIntensity());
         scan->set_azimuth(i, azimuth);
         scan->set_zenith(i, zenith);
       }
@@ -995,36 +1046,42 @@ double GpuRaySensor::VertHalfAngle() const
 }
 
 //////////////////////////////////////////////////
-bool GpuRaySensor::readCsvFile(std::string file_name, std::vector<std::vector<double>>& datas)
+bool GpuRaySensor::ReadCsvSampleFile(std::string _file, std::vector<std::vector<double>>& datas)
 {
-  std::fstream file_stream;
-  file_stream.open(file_name, std::ios::in);
-  if (file_stream.is_open()) {
-      std::string header;
-      std::getline(file_stream, header, '\n');
-      while (!file_stream.eof()) {
-          std::string line_str;
-          std::getline(file_stream, line_str, '\n');
-          std::stringstream line_stream;
-          line_stream << line_str;
-          std::vector<double> data;
-          try {
-              while (!line_stream.eof()) {
-                  std::string value;
-                  std::getline(line_stream, value, ',');
-                  data.push_back(std::stod(value));
-              }
-          } catch (...) {
-              continue;
-          }
-          datas.push_back(data);
-      }
-      gzdbg << "data size:" << datas.size() << "\n";
-      return true;
-  } else {
-      gzerr << "cannot read csv file!" << file_name << "\n";
+  std::ifstream file(_file);
+  if (!file.is_open())
+  {
+    // Failed to open file
+    return false;
   }
-  return false;
+
+  // Skip the header
+  std::string header;
+  std::getline(file, header);
+
+  // Loop through each line in the file
+  std::string line;
+  while (std::getline(file, line)) {
+    std::vector<double> row_data;
+    std::istringstream line_stream(line);
+    std::string cell;
+
+    // Loop through each cell in the line
+    while (std::getline(line_stream, cell, ',')) {
+      try {
+        double value = std::stod(cell);
+        row_data.push_back(value);
+      } catch (const std::invalid_argument&) {
+        // Cell is not a valid double
+        file.close();
+        return false;
+      }
+    }
+    datas.push_back(row_data);
+  }
+
+  file.close();
+  return true;
 }
 
 //////////////////////////////////////////////////
@@ -1037,4 +1094,16 @@ unsigned int GpuRaySensor::SampleSize() const
 bool GpuRaySensor::IsSampleSensor() const
 {
   return this->dataPtr->isSampleSensor;
+}
+
+//////////////////////////////////////////////////
+float GpuRaySensor::FixedIntensity() const
+{
+  return this->dataPtr->fixedIntensity;
+}
+
+//////////////////////////////////////////////////
+bool GpuRaySensor::ComputeIntensity() const
+{
+  return this->dataPtr->computeIntensity;
 }
