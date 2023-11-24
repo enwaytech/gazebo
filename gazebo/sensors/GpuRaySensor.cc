@@ -127,12 +127,13 @@ void GpuRaySensor::Load(const std::string &_worldName)
   if (this->sdf->HasElement("sample_sensor"))
   {
     gzmsg << "Sample sensor function is activated for sensor\n";
+#if 0
     if (ComputeIntensity())
     {
       gzerr << "Computing the intensity is not supported on a sample sensor.\n";
       this->dataPtr->computeIntensity = false;
     }
-
+#endif
     this->dataPtr->isSampleSensor = this->sdf->GetElement("sample_sensor")->Get<bool>();
     this->dataPtr->sampleSize = this->sdf->GetElement("sample_size")->Get<unsigned int>();
     this->dataPtr->sampleFile = this->sdf->GetElement("sample_csv_file")->Get<std::string>();
@@ -404,8 +405,16 @@ void GpuRaySensor::Init()
       }
 
       this->dataPtr->laserCam->InitMapping(azimuth_angles, elevation_angles);
-      this->dataPtr->laserCam->CreateLaserTexture(
-          this->ScopedName() + "_RttTex_Laser", Ogre::PF_FLOAT16_R);
+      if (ComputeIntensity())
+      {
+        this->dataPtr->laserCam->CreateLaserTexture(
+            this->ScopedName() + "_RttTex_Laser", Ogre::PF_FLOAT32_RGB);
+      }
+      else
+      {
+        this->dataPtr->laserCam->CreateLaserTexture(
+            this->ScopedName() + "_RttTex_Laser", Ogre::PF_FLOAT16_R);
+      }
     }
     this->dataPtr->laserCam->CreateRenderTexture(
         this->ScopedName() + "_RttTex_Image");
@@ -953,7 +962,12 @@ bool GpuRaySensor::UpdateImpl(const bool /*_force*/)
       }
 
       const std::vector<float>& data = this->dataPtr->laserCam->LaserData();
-      constexpr unsigned int skip = 3;
+      unsigned int skip = 3;
+      if (ComputeIntensity())
+      {
+        skip = 5;
+      }
+      gzwarn << "data size: " << data.size() << "/ skip: " << data.size() / skip << "\n";
       for (unsigned int i = 0; i < data.size() / skip; ++i)
       {
         double range = data.at(i * skip);
@@ -971,11 +985,29 @@ bool GpuRaySensor::UpdateImpl(const bool /*_force*/)
           range = ignition::math::clamp(range,
               this->dataPtr->rangeMin, this->dataPtr->rangeMax);
         }
-        double azimuth = data.at(i * skip + 1);
-        double zenith = data.at(i * skip + 2);
+        double azimuth;
+        double zenith;
+        if (ComputeIntensity())
+        {
+          azimuth = data.at(i * skip + 3);
+          zenith = data.at(i * skip + 4);
+        }
+        else
+        {
+          azimuth = data.at(i * skip + 1);
+          zenith = data.at(i * skip + 2);
+        }
+
         range = ignition::math::isnan(range) ? this->dataPtr->rangeMax : range;
         scan->set_ranges(i, range);
-        scan->set_intensities(i, FixedIntensity());
+        if (ComputeIntensity())
+        {
+          scan->set_intensities(i, data.at(i * skip + 1));
+        }
+        else
+        {
+          scan->set_intensities(i, FixedIntensity());
+        }
         scan->set_azimuth(i, azimuth);
         scan->set_zenith(i, zenith);
       }

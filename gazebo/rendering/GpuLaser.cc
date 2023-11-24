@@ -154,6 +154,12 @@ void GpuLaser::PostRender()
   {
     numberOfChannels = 1;
   }
+  if (isSampleSensor && computeIntensity)
+  {
+    numberOfChannels = 1;
+    gzwarn << "Setting number of channels to 1 for sample sensor" << std::endl;
+  }
+
   IGN_PROFILE_BEGIN("blitToMemory");
   // Blit the depth buffer if needed
   if (this->newData && this->captureData)
@@ -164,7 +170,14 @@ void GpuLaser::PostRender()
     size_t laserBufferSize;
     if (isSampleSensor)
     {
-      laserBufferSize = this->sampleSize * 3;
+      if(!computeIntensity)
+      {
+        laserBufferSize = 3 * this->sampleSize;
+      }
+      else
+      {
+        laserBufferSize = 5 * this->sampleSize;
+      }
     }
     else
     {
@@ -257,10 +270,23 @@ void GpuLaser::PostRender()
         const auto imageX = static_cast<unsigned int>(faceCoordinates.X() * (imageWidth - 1));
         const auto imageY = static_cast<unsigned int>(faceCoordinates.Y() * (imageHeight - 1));
         const unsigned int depthImageBufferIndex = (imageY * imageWidth + imageX) * numberOfChannels;
-        const unsigned int laserBufferIndex = sampleIndex * numberOfChannels * 3;
-        this->dataPtr->laserBuffer[laserBufferIndex] = Ogre::Bitwise::halfToFloat(cubeFace.depthImgFloat16[depthImageBufferIndex]);
-        this->dataPtr->laserBuffer[laserBufferIndex + 1] = this->dataPtr->sampleAzimuth[idx];
-        this->dataPtr->laserBuffer[laserBufferIndex + 2] = this->dataPtr->sampleElevation[idx];
+        unsigned int laserBufferIndex = sampleIndex * numberOfChannels;
+        if(!computeIntensity)
+        {
+          laserBufferIndex = laserBufferIndex * 3;
+          this->dataPtr->laserBuffer[laserBufferIndex] = Ogre::Bitwise::halfToFloat(cubeFace.depthImgFloat16[depthImageBufferIndex]);
+          this->dataPtr->laserBuffer[laserBufferIndex + 1] = this->dataPtr->sampleAzimuth[idx];
+          this->dataPtr->laserBuffer[laserBufferIndex + 2] = this->dataPtr->sampleElevation[idx];
+        }
+        else
+        {
+          laserBufferIndex = laserBufferIndex * 5;
+          this->dataPtr->laserBuffer[laserBufferIndex] = cubeFace.depthImgFloat32[depthImageBufferIndex]; // range Ogre::Bitwise::halfToFloat(cubeFace.depthImgFloat16[depthImageBufferIndex]);
+          this->dataPtr->laserBuffer[laserBufferIndex + 1] = cubeFace.depthImgFloat32[depthImageBufferIndex + 1]; // intensity
+          this->dataPtr->laserBuffer[laserBufferIndex + 2] = cubeFace.depthImgFloat32[depthImageBufferIndex + 2]; // unused?
+          this->dataPtr->laserBuffer[laserBufferIndex + 3] = this->dataPtr->sampleAzimuth[idx];
+          this->dataPtr->laserBuffer[laserBufferIndex + 4] = this->dataPtr->sampleElevation[idx];
+        }
       }
 
       sampleOffset += this->sampleSize;
